@@ -3,7 +3,7 @@ import {
   Clock, CheckCircle, XCircle, AlertTriangle, Play, 
   RefreshCw, ChevronRight, ChevronDown, Terminal, 
   ArrowLeft, Filter, Calendar, Search, Trash2,
-  Pause, RotateCcw, Eye, Download, Copy, X
+  Pause, RotateCcw, Eye, Download, Copy, X, Zap
 } from 'lucide-react';
 import { View, User } from '../types';
 import { storageService, Execution } from '../services/storageService';
@@ -48,146 +48,6 @@ interface ExecutionDashboardProps {
   onNavigate: (view: View) => void;
   user: User | null;
 }
-
-// Mock data for demo purposes
-const MOCK_EXECUTIONS: WorkflowExecution[] = [
-  {
-    id: 'exec_001',
-    workflowId: 'wf_001',
-    workflowName: 'Customer Onboarding Pipeline',
-    status: 'SUCCESS',
-    triggeredBy: 'WEBHOOK',
-    startedAt: new Date(Date.now() - 3600000),
-    completedAt: new Date(Date.now() - 3540000),
-    duration: 60000,
-    nodeExecutions: [
-      {
-        id: 'ne_001',
-        nodeId: 'node_1',
-        nodeName: 'Webhook Trigger',
-        nodeType: 'WEBHOOK',
-        status: 'SUCCESS',
-        startedAt: new Date(Date.now() - 3600000),
-        completedAt: new Date(Date.now() - 3595000),
-        duration: 5000,
-        output: '{"customer_id": "cust_123", "email": "john@example.com"}'
-      },
-      {
-        id: 'ne_002',
-        nodeId: 'node_2',
-        nodeName: 'AI Data Enrichment',
-        nodeType: 'AI_CHAT',
-        status: 'SUCCESS',
-        startedAt: new Date(Date.now() - 3595000),
-        completedAt: new Date(Date.now() - 3570000),
-        duration: 25000,
-        input: '{"customer_id": "cust_123", "email": "john@example.com"}',
-        output: '{"company": "Acme Corp", "role": "CTO", "industry": "Technology"}'
-      },
-      {
-        id: 'ne_003',
-        nodeId: 'node_3',
-        nodeName: 'Send Welcome Email',
-        nodeType: 'EMAIL',
-        status: 'SUCCESS',
-        startedAt: new Date(Date.now() - 3570000),
-        completedAt: new Date(Date.now() - 3540000),
-        duration: 30000,
-        input: '{"company": "Acme Corp", "role": "CTO", "industry": "Technology"}',
-        output: '{"messageId": "msg_abc123", "status": "sent"}'
-      }
-    ],
-    logs: [
-      { id: 'log_001', timestamp: new Date(Date.now() - 3600000), level: 'INFO', message: 'Workflow execution started' },
-      { id: 'log_002', timestamp: new Date(Date.now() - 3595000), level: 'INFO', message: 'Webhook payload received', nodeId: 'node_1' },
-      { id: 'log_003', timestamp: new Date(Date.now() - 3570000), level: 'INFO', message: 'AI enrichment completed', nodeId: 'node_2' },
-      { id: 'log_004', timestamp: new Date(Date.now() - 3540000), level: 'INFO', message: 'Email sent successfully', nodeId: 'node_3' },
-      { id: 'log_005', timestamp: new Date(Date.now() - 3540000), level: 'INFO', message: 'Workflow execution completed' },
-    ]
-  },
-  {
-    id: 'exec_002',
-    workflowId: 'wf_002',
-    workflowName: 'Daily Report Generator',
-    status: 'RUNNING',
-    triggeredBy: 'SCHEDULE',
-    startedAt: new Date(Date.now() - 120000),
-    nodeExecutions: [
-      {
-        id: 'ne_004',
-        nodeId: 'node_1',
-        nodeName: 'Schedule Trigger',
-        nodeType: 'SCHEDULE',
-        status: 'SUCCESS',
-        startedAt: new Date(Date.now() - 120000),
-        completedAt: new Date(Date.now() - 119000),
-        duration: 1000,
-      },
-      {
-        id: 'ne_005',
-        nodeId: 'node_2',
-        nodeName: 'Fetch Database Records',
-        nodeType: 'DATABASE',
-        status: 'SUCCESS',
-        startedAt: new Date(Date.now() - 119000),
-        completedAt: new Date(Date.now() - 100000),
-        duration: 19000,
-      },
-      {
-        id: 'ne_006',
-        nodeId: 'node_3',
-        nodeName: 'Generate Summary',
-        nodeType: 'AI_SUMMARIZE',
-        status: 'RUNNING',
-        startedAt: new Date(Date.now() - 100000),
-      }
-    ],
-    logs: [
-      { id: 'log_006', timestamp: new Date(Date.now() - 120000), level: 'INFO', message: 'Scheduled execution triggered' },
-      { id: 'log_007', timestamp: new Date(Date.now() - 119000), level: 'INFO', message: 'Fetching database records...' },
-      { id: 'log_008', timestamp: new Date(Date.now() - 100000), level: 'INFO', message: 'Starting AI summarization...' },
-    ]
-  },
-  {
-    id: 'exec_003',
-    workflowId: 'wf_003',
-    workflowName: 'Error Monitoring Alert',
-    status: 'FAILED',
-    triggeredBy: 'WEBHOOK',
-    startedAt: new Date(Date.now() - 7200000),
-    completedAt: new Date(Date.now() - 7180000),
-    duration: 20000,
-    nodeExecutions: [
-      {
-        id: 'ne_007',
-        nodeId: 'node_1',
-        nodeName: 'Webhook Trigger',
-        nodeType: 'WEBHOOK',
-        status: 'SUCCESS',
-        startedAt: new Date(Date.now() - 7200000),
-        completedAt: new Date(Date.now() - 7195000),
-        duration: 5000,
-      },
-      {
-        id: 'ne_008',
-        nodeId: 'node_2',
-        nodeName: 'Send Slack Alert',
-        nodeType: 'SLACK',
-        status: 'FAILED',
-        startedAt: new Date(Date.now() - 7195000),
-        completedAt: new Date(Date.now() - 7180000),
-        duration: 15000,
-        error: 'SLACK_API_ERROR: Invalid token or channel not found'
-      }
-    ],
-    logs: [
-      { id: 'log_009', timestamp: new Date(Date.now() - 7200000), level: 'INFO', message: 'Workflow execution started' },
-      { id: 'log_010', timestamp: new Date(Date.now() - 7195000), level: 'INFO', message: 'Webhook processed', nodeId: 'node_1' },
-      { id: 'log_011', timestamp: new Date(Date.now() - 7180000), level: 'ERROR', message: 'Slack API error: Invalid token', nodeId: 'node_2' },
-      { id: 'log_012', timestamp: new Date(Date.now() - 7180000), level: 'ERROR', message: 'Workflow execution failed' },
-    ]
-  },
-];
 
 const StatusBadge: React.FC<{ status: string; size?: 'sm' | 'md' }> = ({ status, size = 'md' }) => {
   const config: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
@@ -252,7 +112,7 @@ const formatDate = (date: Date): string => {
 };
 
 export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({ onNavigate, user }) => {
-  const [executions, setExecutions] = useState<WorkflowExecution[]>(MOCK_EXECUTIONS);
+  const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
   const [selectedExecution, setSelectedExecution] = useState<WorkflowExecution | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -260,12 +120,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({ onNaviga
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'nodes' | 'logs'>('nodes');
 
-  // Load executions from storage
+  // Load REAL executions from storage (no more mock data)
   useEffect(() => {
     if (user?.email) {
-      const storedExecutions = storageService.getExecutions(user.email);
-      if (storedExecutions.length > 0) {
-        // Convert stored executions to WorkflowExecution format
+      const loadExecutions = () => {
+        const storedExecutions = storageService.getExecutions(user.email);
         const convertedExecutions: WorkflowExecution[] = storedExecutions.map(e => ({
           ...e,
           startedAt: new Date(e.startedAt),
@@ -280,28 +139,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({ onNaviga
             timestamp: new Date(l.timestamp),
           })),
         }));
-        setExecutions([...convertedExecutions, ...MOCK_EXECUTIONS]);
-      }
+        setExecutions(convertedExecutions);
+      };
+
+      loadExecutions();
       
-      // Subscribe to updates
-      const unsubscribe = storageService.subscribe(user.email, (data) => {
-        if (data.executions.length > 0) {
-          const convertedExecutions: WorkflowExecution[] = data.executions.map(e => ({
-            ...e,
-            startedAt: new Date(e.startedAt),
-            completedAt: e.completedAt ? new Date(e.completedAt) : undefined,
-            nodeExecutions: e.nodeExecutions.map(ne => ({
-              ...ne,
-              startedAt: ne.startedAt ? new Date(ne.startedAt) : undefined,
-              completedAt: ne.completedAt ? new Date(ne.completedAt) : undefined,
-            })),
-            logs: e.logs.map(l => ({
-              ...l,
-              timestamp: new Date(l.timestamp),
-            })),
-          }));
-          setExecutions([...convertedExecutions, ...MOCK_EXECUTIONS]);
-        }
+      // Subscribe to real-time updates
+      const unsubscribe = storageService.subscribe(user.email, () => {
+        loadExecutions();
       });
       
       return () => unsubscribe();
@@ -318,13 +163,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({ onNaviga
   });
 
   const handleRetry = (executionId: string) => {
-    // In a real app, this would call the API
     console.log('Retrying execution:', executionId);
     alert('Retry triggered for execution: ' + executionId);
   };
 
   const handleCancel = (executionId: string) => {
-    // In a real app, this would call the API
     console.log('Cancelling execution:', executionId);
     setExecutions(prev => prev.map(e => 
       e.id === executionId ? { ...e, status: 'CANCELLED' as const } : e
@@ -434,9 +277,20 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({ onNaviga
         {/* Execution List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {filteredExecutions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500">
-              <Clock className="w-12 h-12 mb-3 opacity-30" />
-              <p className="text-sm">No executions found</p>
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 px-8">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cherry/10 to-purple-500/10 flex items-center justify-center mb-4">
+                <Zap className="w-10 h-10 text-cherry/30" />
+              </div>
+              <p className="text-sm font-bold text-gray-400 mb-1">No Executions Yet</p>
+              <p className="text-xs text-gray-600 text-center leading-relaxed">
+                Run a workflow from the Builder to see real execution logs here. Each run is automatically tracked.
+              </p>
+              <button
+                onClick={() => onNavigate('BUILDER')}
+                className="mt-4 px-4 py-2 rounded-lg bg-cherry/20 text-cherry text-xs font-bold hover:bg-cherry/30 transition-colors flex items-center gap-2"
+              >
+                <Play className="w-3 h-3" /> Go to Builder
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-white/5">
@@ -460,7 +314,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({ onNaviga
                     <span>{formatDate(exec.startedAt)}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-[10px]">
-                    <span className="text-gray-600 font-mono">{exec.id}</span>
+                    <span className="text-gray-600 font-mono">{exec.id.substring(0, 20)}...</span>
                     <span className="text-gray-500">
                       <Clock className="w-3 h-3 inline mr-1" />
                       {formatDuration(exec.duration)}
@@ -566,117 +420,140 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = ({ onNaviga
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
               {activeTab === 'nodes' ? (
                 <div className="space-y-3">
-                  {selectedExecution.nodeExecutions.map((node, index) => (
-                    <div 
-                      key={node.id}
-                      className="glass-panel rounded-xl overflow-hidden"
-                    >
-                      <button
-                        onClick={() => toggleNodeExpansion(node.id)}
-                        className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs text-gray-400">
-                            {index + 1}
-                          </div>
-                          <div className="text-left">
-                            <h4 className="text-sm font-bold text-white">{node.nodeName}</h4>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">{node.nodeType}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-gray-500 font-mono">{formatDuration(node.duration)}</span>
-                          <StatusBadge status={node.status} size="sm" />
-                          {expandedNodes.has(node.id) ? (
-                            <ChevronDown className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-500" />
-                          )}
-                        </div>
-                      </button>
-                      
-                      {expandedNodes.has(node.id) && (
-                        <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
-                          {node.input && (
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] text-gray-500 uppercase font-bold">Input</span>
-                                <button 
-                                  onClick={() => copyToClipboard(node.input!)}
-                                  className="text-gray-500 hover:text-white transition-colors"
-                                >
-                                  <Copy className="w-3 h-3" />
-                                </button>
-                              </div>
-                              <pre className="p-2 bg-black/40 rounded-lg text-[10px] text-gray-300 font-mono overflow-x-auto">
-                                {node.input}
-                              </pre>
-                            </div>
-                          )}
-                          {node.output && (
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] text-emerald-500 uppercase font-bold">Output</span>
-                                <button 
-                                  onClick={() => copyToClipboard(node.output!)}
-                                  className="text-gray-500 hover:text-white transition-colors"
-                                >
-                                  <Copy className="w-3 h-3" />
-                                </button>
-                              </div>
-                              <pre className="p-2 bg-emerald-500/10 rounded-lg text-[10px] text-emerald-300 font-mono overflow-x-auto">
-                                {node.output}
-                              </pre>
-                            </div>
-                          )}
-                          {node.error && (
-                            <div>
-                              <span className="text-[10px] text-red-500 uppercase font-bold block mb-1">Error</span>
-                              <pre className="p-2 bg-red-500/10 rounded-lg text-[10px] text-red-300 font-mono overflow-x-auto">
-                                {node.error}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                  {selectedExecution.nodeExecutions.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Terminal className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No node execution data available</p>
                     </div>
-                  ))}
+                  ) : (
+                    selectedExecution.nodeExecutions.map((node, index) => (
+                      <div 
+                        key={node.id}
+                        className="glass-panel rounded-xl overflow-hidden"
+                      >
+                        <button
+                          onClick={() => toggleNodeExpansion(node.id)}
+                          className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs text-gray-400">
+                              {index + 1}
+                            </div>
+                            <div className="text-left">
+                              <h4 className="text-sm font-bold text-white">{node.nodeName}</h4>
+                              <p className="text-[10px] text-gray-500 uppercase tracking-wider">{node.nodeType}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-500 font-mono">{formatDuration(node.duration)}</span>
+                            <StatusBadge status={node.status} size="sm" />
+                            {expandedNodes.has(node.id) ? (
+                              <ChevronDown className="w-4 h-4 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-gray-500" />
+                            )}
+                          </div>
+                        </button>
+                        
+                        {expandedNodes.has(node.id) && (
+                          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+                            {node.input && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] text-gray-500 uppercase font-bold">Input</span>
+                                  <button 
+                                    onClick={() => copyToClipboard(node.input!)}
+                                    className="text-gray-500 hover:text-white transition-colors"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                </div>
+                                <pre className="p-2 bg-black/40 rounded-lg text-[10px] text-gray-300 font-mono overflow-x-auto whitespace-pre-wrap">
+                                  {node.input}
+                                </pre>
+                              </div>
+                            )}
+                            {node.output && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] text-emerald-500 uppercase font-bold">Output</span>
+                                  <button 
+                                    onClick={() => copyToClipboard(node.output!)}
+                                    className="text-gray-500 hover:text-white transition-colors"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                </div>
+                                <pre className="p-2 bg-emerald-500/10 rounded-lg text-[10px] text-emerald-300 font-mono overflow-x-auto whitespace-pre-wrap">
+                                  {node.output}
+                                </pre>
+                              </div>
+                            )}
+                            {node.error && (
+                              <div>
+                                <span className="text-[10px] text-red-500 uppercase font-bold block mb-1">Error</span>
+                                <pre className="p-2 bg-red-500/10 rounded-lg text-[10px] text-red-300 font-mono overflow-x-auto whitespace-pre-wrap">
+                                  {node.error}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               ) : (
                 <div className="space-y-1 font-mono text-[11px]">
-                  {selectedExecution.logs.map(log => (
-                    <div 
-                      key={log.id}
-                      className={`p-2 rounded flex items-start gap-3 ${
-                        log.level === 'ERROR' ? 'bg-red-500/10' : 
-                        log.level === 'WARN' ? 'bg-amber-500/10' : 
-                        'hover:bg-white/5'
-                      }`}
-                    >
-                      <span className="text-gray-600 shrink-0">{formatTime(log.timestamp)}</span>
-                      <span className={`shrink-0 w-12 text-center ${
-                        log.level === 'ERROR' ? 'text-red-400' :
-                        log.level === 'WARN' ? 'text-amber-400' :
-                        log.level === 'DEBUG' ? 'text-gray-500' :
-                        'text-blue-400'
-                      }`}>
-                        [{log.level}]
-                      </span>
-                      <span className="text-gray-300 flex-1">{log.message}</span>
-                      {log.nodeId && (
-                        <span className="text-gray-600 shrink-0">{log.nodeId}</span>
-                      )}
+                  {selectedExecution.logs.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Terminal className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No logs available</p>
                     </div>
-                  ))}
+                  ) : (
+                    selectedExecution.logs.map(log => (
+                      <div 
+                        key={log.id}
+                        className={`p-2 rounded flex items-start gap-3 ${
+                          log.level === 'ERROR' ? 'bg-red-500/10' : 
+                          log.level === 'WARN' ? 'bg-amber-500/10' : 
+                          'hover:bg-white/5'
+                        }`}
+                      >
+                        <span className="text-gray-600 shrink-0">{formatTime(log.timestamp)}</span>
+                        <span className={`shrink-0 w-12 text-center ${
+                          log.level === 'ERROR' ? 'text-red-400' :
+                          log.level === 'WARN' ? 'text-amber-400' :
+                          log.level === 'DEBUG' ? 'text-gray-500' :
+                          'text-blue-400'
+                        }`}>
+                          [{log.level}]
+                        </span>
+                        <span className="text-gray-300 flex-1">{log.message}</span>
+                        {log.nodeId && (
+                          <span className="text-gray-600 shrink-0">{log.nodeId}</span>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-            <Eye className="w-16 h-16 mb-4 opacity-20" />
-            <p className="text-lg font-bold mb-1">No Execution Selected</p>
-            <p className="text-sm">Select an execution from the list to view details</p>
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-white/5 to-white/0 flex items-center justify-center mb-4">
+              <Eye className="w-12 h-12 opacity-20" />
+            </div>
+            <p className="text-lg font-bold mb-1">
+              {executions.length === 0 ? 'No Executions Yet' : 'Select an Execution'}
+            </p>
+            <p className="text-sm text-gray-600">
+              {executions.length === 0 
+                ? 'Run a workflow to see execution details here' 
+                : 'Click on an execution from the list to view details'
+              }
+            </p>
           </div>
         )}
       </div>

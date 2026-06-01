@@ -8,6 +8,17 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/api': {
+            target: 'http://localhost:8080',
+            changeOrigin: true,
+            secure: false,
+          },
+        },
+        watch: {
+          // Exclude non-frontend directories from Vite's file watcher
+          ignored: ['**/claw-code/**', '**/backend/**', '**/node_modules/**', '**/.git/**'],
+        },
       },
       plugins: [react()],
       define: {

@@ -99,6 +99,7 @@ export interface NodeData {
   // Multiple endpoints support
   inputEndpoints?: number;  // Number of input endpoints (default 1)
   outputEndpoints?: number; // Number of output endpoints (default 1)
+  formatWithAI?: boolean;   // Enable AI formatting for output (e.g. Email Sender)
 }
 
 export interface WorkflowNode {

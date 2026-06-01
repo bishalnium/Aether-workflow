@@ -172,7 +172,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, setCurrentView, chi
       </nav>
 
       {/* Main Content Area */}
-      <main className="relative z-10 min-h-screen">
+      <main className="relative min-h-screen">
         {children}
       </main>
     </div>

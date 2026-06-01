@@ -5,10 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Using SQLite for simplicity - no database setup required
-// Change to "postgresql" if you want to use PostgreSQL
+// Using Aiven PostgreSQL cloud database
+// Free tier: 1 CPU, 1 GB RAM, 1 GB storage, never pauses
+// Connection URL is configured in prisma.config.ts
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // ============ USER & AUTH ============

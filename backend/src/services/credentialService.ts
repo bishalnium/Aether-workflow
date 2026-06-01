@@ -1,90 +1,121 @@
 // ===========================================
 // AETHER WORKFLOW ENGINE - Credential Service
-// Secure storage and retrieval of credentials
+// Secure storage using Aiven PostgreSQL
+// Encrypted with AES-256 before storing in DB
 // ===========================================
 
 import { encryption } from '../utils/encryption';
 import { logger } from '../utils/logger';
-import { CredentialType, CredentialData } from '../types/workflow.types';
+import prisma from '../utils/prismaClient';
 
-// In-memory store (replace with Prisma in production)
-const credentialStore: Map<string, { userId: string; encrypted: string; name: string; type: CredentialType }> = new Map();
+// Map frontend type strings to Prisma enum values
+function toCredentialType(type: string): 'API_KEY' | 'OAUTH2' | 'BASIC_AUTH' | 'SMTP' | 'DATABASE' | 'AWS' | 'GOOGLE' | 'SLACK' | 'CUSTOM' {
+  const validTypes = ['API_KEY', 'OAUTH2', 'BASIC_AUTH', 'SMTP', 'DATABASE', 'AWS', 'GOOGLE', 'SLACK', 'CUSTOM'];
+  const upper = type?.toUpperCase() || 'API_KEY';
+  return validTypes.includes(upper) ? upper as any : 'API_KEY';
+}
 
 export const credentialService = {
   /**
-   * Store encrypted credentials
+   * Store encrypted credentials in PostgreSQL
    */
   async store(
     userId: string,
     name: string,
-    type: CredentialType,
-    data: Record<string, any>
+    type: string,
+    data: Record<string, any>,
+    provider?: string,
+    model?: string
   ): Promise<string> {
-    const id = `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const encrypted = encryption.encrypt(data);
-    
-    credentialStore.set(id, {
-      userId,
-      name,
-      type,
-      encrypted,
+
+    // Find or create user first
+    let user = await prisma.user.findFirst({ where: { email: userId } });
+    if (!user) {
+      // Create a placeholder user record if they don't exist yet
+      user = await prisma.user.create({
+        data: {
+          email: userId,
+          name: userId.split('@')[0] || 'User',
+        }
+      });
+      logger.info(`Created user record for: ${userId}`);
+    }
+
+    const credential = await prisma.credential.create({
+      data: {
+        name: provider ? `${provider}:${name}` : name,
+        type: toCredentialType(type),
+        data: encrypted, // AES-256 encrypted string
+        userId: user.id,
+      }
     });
 
-    logger.info(`Credential stored: ${name} (${type})`, { credentialId: id, userId });
-    return id;
+    logger.info(`Credential stored in DB: ${name} (${type}) for user ${userId}`, { credentialId: credential.id });
+    return credential.id;
   },
 
   /**
-   * Get decrypted credentials
+   * Get decrypted credentials from DB
    */
   async getDecrypted(credentialId: string, userId: string): Promise<Record<string, any> | null> {
-    const stored = credentialStore.get(credentialId);
-    
-    if (!stored) {
+    const user = await prisma.user.findFirst({ where: { email: userId } });
+    if (!user) {
+      logger.warn(`User not found: ${userId}`);
+      return null;
+    }
+
+    const credential = await prisma.credential.findFirst({
+      where: { id: credentialId, userId: user.id }
+    });
+
+    if (!credential) {
       logger.warn(`Credential not found: ${credentialId}`);
       return null;
     }
 
-    // Verify ownership
-    if (stored.userId !== userId) {
-      logger.warn(`Unauthorized credential access attempt`, { credentialId, userId });
-      return null;
-    }
-
-    return encryption.decrypt(stored.encrypted);
+    return encryption.decrypt(credential.data);
   },
 
   /**
-   * List credentials for a user (without sensitive data)
+   * List credentials for a user (no sensitive data)
    */
-  async list(userId: string): Promise<Array<{ id: string; name: string; type: CredentialType }>> {
-    const result: Array<{ id: string; name: string; type: CredentialType }> = [];
-    
-    credentialStore.forEach((value, key) => {
-      if (value.userId === userId) {
-        result.push({
-          id: key,
-          name: value.name,
-          type: value.type,
-        });
-      }
+  async list(userId: string): Promise<Array<{ id: string; name: string; type: string; provider?: string; createdAt: string }>> {
+    const user = await prisma.user.findFirst({ where: { email: userId } });
+    if (!user) return [];
+
+    const credentials = await prisma.credential.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true, type: true, createdAt: true },
+      orderBy: { createdAt: 'desc' }
     });
 
-    return result;
+    return credentials.map(c => {
+      const parts = c.name.split(':');
+      return {
+        id: c.id,
+        name: parts.length > 1 ? parts.slice(1).join(':') : c.name,
+        type: c.type,
+        provider: parts.length > 1 ? parts[0] : undefined,
+        createdAt: c.createdAt.toISOString(),
+      };
+    });
   },
 
   /**
    * Delete a credential
    */
   async delete(credentialId: string, userId: string): Promise<boolean> {
-    const stored = credentialStore.get(credentialId);
-    
-    if (!stored || stored.userId !== userId) {
-      return false;
-    }
+    const user = await prisma.user.findFirst({ where: { email: userId } });
+    if (!user) return false;
 
-    credentialStore.delete(credentialId);
-    logger.info(`Credential deleted: ${credentialId}`);
+    const credential = await prisma.credential.findFirst({
+      where: { id: credentialId, userId: user.id }
+    });
+    if (!credential) return false;
+
+    await prisma.credential.delete({ where: { id: credentialId } });
+    logger.info(`Credential deleted from DB: ${credentialId}`);
     return true;
   },
 
@@ -96,16 +127,20 @@ export const credentialService = {
     userId: string,
     data: Record<string, any>
   ): Promise<boolean> {
-    const stored = credentialStore.get(credentialId);
-    
-    if (!stored || stored.userId !== userId) {
-      return false;
-    }
+    const user = await prisma.user.findFirst({ where: { email: userId } });
+    if (!user) return false;
 
-    stored.encrypted = encryption.encrypt(data);
-    credentialStore.set(credentialId, stored);
-    
-    logger.info(`Credential updated: ${credentialId}`);
+    const credential = await prisma.credential.findFirst({
+      where: { id: credentialId, userId: user.id }
+    });
+    if (!credential) return false;
+
+    await prisma.credential.update({
+      where: { id: credentialId },
+      data: { data: encryption.encrypt(data) }
+    });
+
+    logger.info(`Credential updated in DB: ${credentialId}`);
     return true;
   },
 };

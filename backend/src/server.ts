@@ -379,14 +379,14 @@ app.post('/api/v1/schedules/validate', async (req: Request, res: Response) => {
 app.post('/api/v1/credentials', authenticate, async (req: Request, res: Response) => {
   try {
     const authReq = req as AuthenticatedRequest;
-    const userId = authReq.user?.id || 'anonymous';
-    const { name, type, data } = req.body;
+    const userId = authReq.user?.email || authReq.user?.id || 'anonymous';
+    const { name, type, data, provider, model } = req.body;
     
     if (!name || !type || !data) {
       return res.status(400).json({ success: false, error: 'name, type, and data required' });
     }
     
-    const id = await credentialService.store(userId, name, type, data);
+    const id = await credentialService.store(userId, name, type, data, provider, model);
     res.status(201).json({ success: true, data: { id } });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -397,7 +397,7 @@ app.post('/api/v1/credentials', authenticate, async (req: Request, res: Response
 app.get('/api/v1/credentials', authenticate, async (req: Request, res: Response) => {
   try {
     const authReq = req as AuthenticatedRequest;
-    const userId = authReq.user?.id || 'anonymous';
+    const userId = authReq.user?.email || authReq.user?.id || 'anonymous';
     const credentials = await credentialService.list(userId);
     res.json({ success: true, data: credentials });
   } catch (error: any) {
@@ -409,7 +409,7 @@ app.get('/api/v1/credentials', authenticate, async (req: Request, res: Response)
 app.delete('/api/v1/credentials/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const authReq = req as AuthenticatedRequest;
-    const userId = authReq.user?.id || 'anonymous';
+    const userId = authReq.user?.email || authReq.user?.id || 'anonymous';
     const success = await credentialService.delete(req.params.id, userId);
     res.json({ success });
   } catch (error: any) {
@@ -668,6 +668,852 @@ app.get('/api/v1/integrations/email/test', async (req: Request, res: Response) =
     const connected = await emailService.testConnection();
     res.json({ success: true, data: { connected } });
   } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===========================================
+// DUCKDUCKGO AI WEB RESEARCH (RAG-POWERED)
+// AI formulates query → Search → AI analyzes & summarizes
+// ===========================================
+app.post('/api/v1/integrations/ddg/search', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { query } = req.body;
+    if (!query) return res.status(400).json({ success: false, error: 'Query is required' });
+
+    const { groqChat } = require('./utils/groqClient');
+
+    logger.info(`[DDG RAG ROUTE] Initiating RAG Agent Loop for: "${query}"`);
+
+    let attempts = 0;
+    const maxAttempts = 2;
+    let allSearchResults: string[] = [];
+    let lastQuery = query;
+    let isResolved = false;
+    let justification = '';
+    let finalAnswer = '';
+
+    while (attempts < maxAttempts && !isResolved) {
+      attempts++;
+      logger.info(`[DDG RAG ROUTE] Attempt ${attempts}/${maxAttempts}`);
+
+      // Step 1: Formulate search query using LLM
+      let searchQuery = query;
+      if (attempts === 1) {
+        try {
+          const queryResponse = await groqChat({
+            messages: [
+              { 
+                role: 'system', 
+                content: `You are a search query optimizer for the DuckDuckGo Instant Answers API. The API only returns results for Wikipedia-style topic titles or general concepts (e.g., "React (software)", "Retrieval-augmented generation", "Joe Biden"), NOT conversational questions.
+Given the user's question, generate the BEST concise topic name, keyword, or Wikipedia-style title to fetch the information.
+CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "how to", "why does", "define", "explain", "meaning of", "about", etc. Output ONLY the core entity, noun phrase, or concept name. Return ONLY the raw query string, no quotes, no explanation.` 
+              },
+              { role: 'user', content: query }
+            ],
+            temperature: 0.3,
+            maxTokens: 50
+          });
+          searchQuery = queryResponse.trim().replace(/^["']|["']$/g, '') || query;
+        } catch (aiErr: any) {
+          logger.warn(`[DDG RAG ROUTE] Attempt 1 query optimization failed: ${aiErr.message}`);
+          searchQuery = query;
+        }
+      } else {
+        // Refinement
+        try {
+          const contextText = allSearchResults.join('\n\n');
+          const refinementResponse = await groqChat({
+            messages: [
+              { 
+                role: 'system', 
+                content: `You are a search query refiner for the DuckDuckGo Instant Answers API. The API only returns results for Wikipedia-style topic titles or general concepts, NOT conversational questions. We previously searched for "${lastQuery}" and found insufficient information.
+Based on the user's original question and the current findings, generate a NEW keyword, topic name, or Wikipedia-style title to retrieve the missing details.
+CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "how to", "why does", "define", "explain", "meaning of", "about", etc. Output ONLY the core entity, noun phrase, or concept name. Return ONLY the raw query string, no quotes, no explanation.` 
+              },
+              { role: 'user', content: `Original Question: ${query}\n\nPrevious Findings:\n${contextText.substring(0, 2000)}` }
+            ],
+            temperature: 0.3,
+            maxTokens: 50
+          });
+          searchQuery = refinementResponse.trim().replace(/^["']|["']$/g, '') || query;
+        } catch (aiErr: any) {
+          logger.warn(`[DDG RAG ROUTE] Attempt ${attempts} query refinement failed: ${aiErr.message}`);
+          searchQuery = query;
+        }
+      }
+
+      lastQuery = searchQuery;
+      logger.info(`[DDG RAG ROUTE] Running search for query: "${searchQuery}"`);
+
+      // Step 2: Fetch search results
+      let searchData: any = {};
+      try {
+        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&format=json&no_html=1&skip_disambig=1`;
+        const response = await axios.get(url, { timeout: 8000 });
+        searchData = response.data;
+      } catch (searchErr: any) {
+        logger.error(`[DDG RAG ROUTE] Search request failed: ${searchErr.message}`);
+      }
+
+      // Accumulate findings
+      const currentResults: string[] = [];
+      if (searchData.Abstract) currentResults.push(`[Abstract from ${searchData.AbstractSource || 'web'}]: ${searchData.Abstract}`);
+      if (searchData.Answer) currentResults.push(`[Direct Answer]: ${searchData.Answer}`);
+      if (searchData.Definition) currentResults.push(`[Definition]: ${searchData.Definition}`);
+      if (searchData.Heading) currentResults.push(`[Heading]: ${searchData.Heading}`);
+      (searchData.RelatedTopics || []).slice(0, 10).forEach((t: any) => {
+        if (t.Text) currentResults.push(`[Related Topic]: ${t.Text} (${t.FirstURL || ''})`);
+      });
+
+      if (currentResults.length > 0) {
+        allSearchResults.push(...currentResults);
+      } else {
+        allSearchResults.push(`No direct answers or abstracts found for query: "${searchQuery}"`);
+      }
+
+      // Step 3: LLM evaluates results and decides to pass forward or not
+      logger.info(`[DDG RAG ROUTE] Evaluating results with LLM...`);
+      const contextBlock = allSearchResults.join('\n\n');
+
+      try {
+        const evaluationResponse = await groqChat({
+          messages: [
+            { 
+              role: 'system', 
+              content: `You are an AI research validator. You are evaluating if the search results contain sufficient information to answer the user's question.
+You must output a JSON object with the following fields:
+{
+  "isResolved": boolean, // Set to true if the search results are sufficient to answer the user's question. Set to false if key facts are still missing.
+  "justification": "Brief explanation of why the search results are or are not sufficient.",
+  "searchQuerySuggestion": "If isResolved is false, suggest a better search query to find the missing details. Otherwise, leave empty.",
+  "compiledAnswer": "If isResolved is true, provide the final comprehensive answer to the user. Otherwise, provide a draft of what you know so far."
+}
+IMPORTANT: Output ONLY the valid JSON block, nothing else.` 
+            },
+            { 
+              role: 'user', 
+              content: `User's Question: ${query}\n\nSearch Results:\n${contextBlock.substring(0, 4000)}` 
+            }
+          ],
+          temperature: 0.2,
+          maxTokens: 1000
+        });
+
+        // Parse JSON
+        let jsonStart = evaluationResponse.indexOf('{');
+        let jsonEnd = evaluationResponse.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          const jsonStr = evaluationResponse.substring(jsonStart, jsonEnd + 1);
+          const evalData = JSON.parse(jsonStr);
+          isResolved = !!evalData.isResolved;
+          justification = evalData.justification || '';
+          finalAnswer = evalData.compiledAnswer || '';
+          logger.info(`[DDG RAG ROUTE] Evaluation: isResolved = ${isResolved}. Justification: ${justification}`);
+        } else {
+          logger.warn(`[DDG RAG ROUTE] LLM response was not JSON: ${evaluationResponse}`);
+          isResolved = true; // Stop loop
+          justification = "Failed to parse evaluation JSON.";
+          finalAnswer = evaluationResponse;
+        }
+      } catch (aiErr: any) {
+        logger.error(`[DDG RAG ROUTE] LLM evaluation failed: ${aiErr.message}`);
+        isResolved = true; // Stop loop on error
+        justification = `LLM evaluation error: ${aiErr.message}`;
+        finalAnswer = contextBlock;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        query,
+        searchQuery: lastQuery,
+        answer: finalAnswer,
+        passForward: isResolved,
+        justification,
+        attempts
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: `Web Research Error: ${error.message}` });
+  }
+});
+
+// ===========================================
+// RSS AI FEED ANALYZER (RAG-POWERED)
+// Fetch feed → AI analyzes & summarizes content
+// ===========================================
+app.post('/api/v1/integrations/rss/fetch', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { feedUrl, maxItems = 10, query, rawMode } = req.body;
+    if (!feedUrl) return res.status(400).json({ success: false, error: 'Feed URL is required' });
+
+    // --- STEP 1: Fetch and parse the RSS/Atom feed ---
+    const response = await axios.get(feedUrl, { 
+      headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' },
+      timeout: 10000 
+    });
+    const xml = response.data;
+
+    const items: any[] = [];
+    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>|<entry[^>]*>([\s\S]*?)<\/entry>/gi;
+    let match;
+    while ((match = itemRegex.exec(xml)) !== null && items.length < maxItems) {
+      const content = match[1] || match[2];
+      const getTag = (tag: string) => {
+        const m = content.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/${tag}>`, 'is'));
+        return m ? m[1].trim() : null;
+      };
+      items.push({
+        title: getTag('title'),
+        link: getTag('link') || content.match(/href="([^"]+)"/)?.[1] || null,
+        description: getTag('description') || getTag('summary') || getTag('content'),
+        pubDate: getTag('pubDate') || getTag('published') || getTag('updated'),
+      });
+    }
+
+    // If rawMode, return just the parsed articles
+    if (rawMode) {
+      return res.json({ success: true, data: items });
+    }
+
+    // --- STEP 2: AI analyzes the feed content ---
+    const { groqChat } = require('./utils/groqClient');
+
+    // Build a context block from all articles
+    const articlesContext = items.map((item, i) => 
+      `[Article ${i + 1}] "${item.title || 'Untitled'}"\nDate: ${item.pubDate || 'Unknown'}\nURL: ${item.link || 'N/A'}\nContent: ${(item.description || '').substring(0, 300)}`
+    ).join('\n\n---\n\n');
+
+    const userContext = query 
+      ? `The user is specifically interested in: "${query}"\nPlease focus on articles relevant to this topic.`
+      : `Provide a general summary and highlights of the feed.`;
+
+    let aiAnalysis: string;
+    try {
+      aiAnalysis = await groqChat({
+        messages: [
+          { role: 'system', content: `You are an AI content analyst. You've been given articles from an RSS feed. Your job is to:
+1. Summarize the key themes and trends across all articles
+2. Highlight the most important/relevant articles
+3. If the user has a specific interest, filter and rank articles by relevance
+4. Provide actionable insights from the content
+5. Note any breaking news or time-sensitive information
+
+Format: Start with a brief overview, then list key articles with why they matter.` },
+          { role: 'user', content: `**Feed URL:** ${feedUrl}\n**Total Articles:** ${items.length}\n\n${userContext}\n\n**Articles:**\n${articlesContext}` }
+        ],
+        temperature: 0.5,
+        maxTokens: 1500
+      });
+    } catch (aiErr) {
+      logger.warn(`[RSS RAG] AI analysis failed: ${(aiErr as any).message}`);
+      aiAnalysis = `[AI analysis unavailable — ${items.length} raw articles returned]`;
+    }
+
+    // --- STEP 3: Return intelligent response ---
+    const result = {
+      feedUrl,
+      totalArticles: items.length,
+      analysis: aiAnalysis,
+      articles: items.map(item => ({
+        title: item.title,
+        link: item.link,
+        date: item.pubDate,
+        snippet: item.description ? item.description.substring(0, 200) + '...' : null,
+      })),
+    };
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: `RSS Feed Error: ${error.message}` });
+  }
+});
+
+// ===========================================
+// GITHUB INTEGRATION (USER'S OWN TOKEN)
+// ===========================================
+app.post('/api/v1/integrations/github/execute', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { token, action, owner, repo, issueTitle, issueBody, filePath } = req.body;
+    if (!token) return res.status(400).json({ success: false, error: 'GitHub token is required' });
+
+    const ghHeaders = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+
+    let result: any;
+
+    switch (action) {
+      case 'list-repos': {
+        const resp = await axios.get('https://api.github.com/user/repos?sort=updated&per_page=30', { headers: ghHeaders });
+        result = resp.data.map((r: any) => ({
+          name: r.full_name, description: r.description, stars: r.stargazers_count,
+          language: r.language, url: r.html_url, private: r.private, updated: r.updated_at
+        }));
+        break;
+      }
+      case 'list-issues': {
+        if (!owner || !repo) return res.status(400).json({ success: false, error: 'Owner and repo are required' });
+        const resp = await axios.get(`https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=20`, { headers: ghHeaders });
+        result = resp.data.map((i: any) => ({
+          number: i.number, title: i.title, state: i.state, user: i.user?.login,
+          labels: i.labels?.map((l: any) => l.name), created: i.created_at, url: i.html_url
+        }));
+        break;
+      }
+      case 'create-issue': {
+        if (!owner || !repo) return res.status(400).json({ success: false, error: 'Owner and repo are required' });
+        const resp = await axios.post(`https://api.github.com/repos/${owner}/${repo}/issues`, 
+          { title: issueTitle || 'New Issue', body: issueBody || '' }, { headers: ghHeaders });
+        result = { number: resp.data.number, title: resp.data.title, url: resp.data.html_url, state: resp.data.state };
+        break;
+      }
+      case 'read-file': {
+        if (!owner || !repo) return res.status(400).json({ success: false, error: 'Owner and repo are required' });
+        const resp = await axios.get(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath || 'README.md'}`, { headers: ghHeaders });
+        const content = Buffer.from(resp.data.content, 'base64').toString('utf-8');
+        result = { path: resp.data.path, size: resp.data.size, content };
+        break;
+      }
+      case 'list-commits': {
+        if (!owner || !repo) return res.status(400).json({ success: false, error: 'Owner and repo are required' });
+        const resp = await axios.get(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=10`, { headers: ghHeaders });
+        result = resp.data.map((c: any) => ({
+          sha: c.sha.substring(0, 7), message: c.commit.message, author: c.commit.author.name,
+          date: c.commit.author.date, url: c.html_url
+        }));
+        break;
+      }
+      default:
+        return res.status(400).json({ success: false, error: `Unknown GitHub action: ${action}` });
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    const msg = error.response?.data?.message || error.message;
+    res.status(error.response?.status || 500).json({ success: false, error: `GitHub API Error: ${msg}` });
+  }
+});
+
+// ===========================================
+// TELEGRAM BOT (USER'S OWN TOKEN)
+// ===========================================
+app.post('/api/v1/integrations/telegram/execute', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { token, action, chatId, message, photoUrl } = req.body;
+    if (!token) return res.status(400).json({ success: false, error: 'Telegram bot token is required' });
+
+    const baseUrl = `https://api.telegram.org/bot${token}`;
+    let result: any;
+
+    switch (action) {
+      case 'send-message': {
+        if (!chatId) return res.status(400).json({ success: false, error: 'Chat ID is required' });
+        const resp = await axios.post(`${baseUrl}/sendMessage`, {
+          chat_id: chatId, text: message || 'Hello from Aether!', parse_mode: 'Markdown'
+        });
+        result = { messageId: resp.data.result?.message_id, chat: resp.data.result?.chat?.title || chatId, sent: true };
+        break;
+      }
+      case 'send-photo': {
+        if (!chatId) return res.status(400).json({ success: false, error: 'Chat ID is required' });
+        const resp = await axios.post(`${baseUrl}/sendPhoto`, {
+          chat_id: chatId, photo: photoUrl || '', caption: message || ''
+        });
+        result = { messageId: resp.data.result?.message_id, sent: true };
+        break;
+      }
+      case 'get-updates': {
+        const resp = await axios.get(`${baseUrl}/getUpdates?limit=10`);
+        result = (resp.data.result || []).map((u: any) => ({
+          updateId: u.update_id,
+          from: u.message?.from?.username || u.message?.from?.first_name,
+          text: u.message?.text,
+          date: u.message?.date ? new Date(u.message.date * 1000).toISOString() : null,
+          chatId: u.message?.chat?.id
+        }));
+        break;
+      }
+      default:
+        return res.status(400).json({ success: false, error: `Unknown Telegram action: ${action}` });
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    const msg = error.response?.data?.description || error.message;
+    res.status(500).json({ success: false, error: `Telegram API Error: ${msg}` });
+  }
+});
+
+// ===========================================
+// NOTION (USER'S OWN TOKEN)
+// ===========================================
+app.post('/api/v1/integrations/notion/execute', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { token, action, databaseId, properties, query } = req.body;
+    if (!token) return res.status(400).json({ success: false, error: 'Notion token is required' });
+
+    const notionHeaders = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28'
+    };
+
+    let result: any;
+
+    switch (action) {
+      case 'query-database': {
+        if (!databaseId) return res.status(400).json({ success: false, error: 'Database ID is required' });
+        const resp = await axios.post(`https://api.notion.com/v1/databases/${databaseId}/query`, {}, { headers: notionHeaders });
+        result = (resp.data.results || []).map((page: any) => {
+          const props: any = {};
+          for (const [key, val] of Object.entries(page.properties || {})) {
+            const v = val as any;
+            if (v.title) props[key] = v.title[0]?.text?.content || '';
+            else if (v.rich_text) props[key] = v.rich_text[0]?.text?.content || '';
+            else if (v.number !== undefined) props[key] = v.number;
+            else if (v.select) props[key] = v.select?.name || '';
+            else if (v.multi_select) props[key] = v.multi_select?.map((s: any) => s.name) || [];
+            else if (v.checkbox !== undefined) props[key] = v.checkbox;
+            else if (v.url) props[key] = v.url;
+            else if (v.date) props[key] = v.date?.start || '';
+            else props[key] = v.type || 'unknown';
+          }
+          return { id: page.id, url: page.url, ...props };
+        });
+        break;
+      }
+      case 'create-page': {
+        if (!databaseId) return res.status(400).json({ success: false, error: 'Database ID is required' });
+        let parsedProps = {};
+        try { parsedProps = typeof properties === 'string' ? JSON.parse(properties) : (properties || {}); } catch {}
+        const resp = await axios.post('https://api.notion.com/v1/pages', {
+          parent: { database_id: databaseId },
+          properties: parsedProps
+        }, { headers: notionHeaders });
+        result = { id: resp.data.id, url: resp.data.url, created: true };
+        break;
+      }
+      case 'search': {
+        const resp = await axios.post('https://api.notion.com/v1/search', {
+          query: query || '', page_size: 10
+        }, { headers: notionHeaders });
+        result = (resp.data.results || []).map((item: any) => ({
+          id: item.id, type: item.object, url: item.url,
+          title: item.properties?.Name?.title?.[0]?.text?.content || item.properties?.title?.title?.[0]?.text?.content || 'Untitled'
+        }));
+        break;
+      }
+      default:
+        return res.status(400).json({ success: false, error: `Unknown Notion action: ${action}` });
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    const msg = error.response?.data?.message || error.message;
+    res.status(error.response?.status || 500).json({ success: false, error: `Notion API Error: ${msg}` });
+  }
+});
+
+// ===========================================
+// DISCORD WEBHOOK (USER'S OWN WEBHOOK URL)
+// ===========================================
+app.post('/api/v1/integrations/discord/send', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { webhookUrl, message, action, embedTitle, embedColor } = req.body;
+    if (!webhookUrl) return res.status(400).json({ success: false, error: 'Discord webhook URL is required' });
+    if (!webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+      return res.status(400).json({ success: false, error: 'Invalid Discord webhook URL format' });
+    }
+
+    let payload: any;
+    if (action === 'send-embed') {
+      payload = {
+        embeds: [{
+          title: embedTitle || 'Aether Workflow',
+          description: message || 'Notification from Aether',
+          color: parseInt((embedColor || '5865F2').replace('#', ''), 16),
+          timestamp: new Date().toISOString(),
+          footer: { text: 'Sent via Aether Workflow' }
+        }]
+      };
+    } else {
+      payload = { content: message || 'Hello from Aether Workflow!' };
+    }
+
+    const resp = await axios.post(webhookUrl, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    // Discord returns 204 No Content on success
+    res.json({ success: true, data: { sent: true, status: resp.status } });
+  } catch (error: any) {
+    const msg = error.response?.data?.message || error.message;
+    res.status(500).json({ success: false, error: `Discord Error: ${msg}` });
+  }
+});
+
+// ===========================================
+// GOOGLE SHEETS (USER'S SERVICE ACCOUNT)
+// ===========================================
+app.post('/api/v1/integrations/sheets/execute', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { action, sheetsId, range, rowData, serviceAccountJson } = req.body;
+    if (!sheetsId) return res.status(400).json({ success: false, error: 'Spreadsheet ID is required' });
+    if (!serviceAccountJson) return res.status(400).json({ success: false, error: 'Service Account JSON is required' });
+
+    // Parse service account credentials
+    let credentials: any;
+    try {
+      credentials = typeof serviceAccountJson === 'string' ? JSON.parse(serviceAccountJson) : serviceAccountJson;
+    } catch {
+      return res.status(400).json({ success: false, error: 'Invalid Service Account JSON — must be valid JSON' });
+    }
+
+    // Get OAuth2 token from Google using JWT
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const effectiveRange = range || 'Sheet1!A1:Z100';
+
+    let result: any;
+    switch (action) {
+      case 'read-sheet': {
+        const resp = await sheets.spreadsheets.values.get({
+          spreadsheetId: sheetsId,
+          range: effectiveRange,
+        });
+        result = { rows: resp.data.values || [], range: resp.data.range, rowCount: (resp.data.values || []).length };
+        break;
+      }
+      case 'append-row': {
+        let values: any[][] = [];
+        try {
+          const parsed = typeof rowData === 'string' ? JSON.parse(rowData) : rowData;
+          values = Array.isArray(parsed[0]) ? parsed : [parsed];
+        } catch {
+          values = [[rowData]];
+        }
+        const resp = await sheets.spreadsheets.values.append({
+          spreadsheetId: sheetsId,
+          range: effectiveRange,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values },
+        });
+        result = { appended: true, updatedRange: resp.data.updates?.updatedRange, updatedRows: resp.data.updates?.updatedRows };
+        break;
+      }
+      case 'update-cell': {
+        let values: any[][] = [];
+        try {
+          const parsed = typeof rowData === 'string' ? JSON.parse(rowData) : rowData;
+          values = Array.isArray(parsed[0]) ? parsed : [parsed];
+        } catch {
+          values = [[rowData]];
+        }
+        const resp = await sheets.spreadsheets.values.update({
+          spreadsheetId: sheetsId,
+          range: effectiveRange,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values },
+        });
+        result = { updated: true, updatedRange: resp.data.updatedRange, updatedCells: resp.data.updatedCells };
+        break;
+      }
+      default:
+        return res.status(400).json({ success: false, error: `Unknown action: ${action}` });
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    const msg = error.response?.data?.error?.message || error.message;
+    res.status(500).json({ success: false, error: `Google Sheets Error: ${msg}` });
+  }
+});
+// ===========================================
+// FIREBASE FIRESTORE (USER'S OWN SERVICE ACCOUNT)
+// ===========================================
+app.post('/api/v1/integrations/firebase/execute', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { action, serviceAccountJson, documentPath, collectionPath, data: docData, query: queryField } = req.body;
+    if (!serviceAccountJson) return res.status(400).json({ success: false, error: 'Firebase Service Account JSON is required' });
+
+    // Parse service account credentials
+    let credentials: any;
+    try {
+      credentials = typeof serviceAccountJson === 'string' ? JSON.parse(serviceAccountJson) : serviceAccountJson;
+    } catch {
+      return res.status(400).json({ success: false, error: 'Invalid Service Account JSON — must be valid JSON' });
+    }
+
+    if (!credentials.project_id) {
+      return res.status(400).json({ success: false, error: 'Service Account JSON must contain a project_id' });
+    }
+
+    // Initialize Firebase Admin with the user's service account
+    // Use a unique app name per project to avoid conflicts between different users
+    const admin = require('firebase-admin');
+    const appName = `aether_${credentials.project_id}_${Date.now()}`;
+    let firebaseApp;
+    
+    try {
+      firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert(credentials),
+        projectId: credentials.project_id,
+      }, appName);
+    } catch (initErr: any) {
+      return res.status(400).json({ success: false, error: `Firebase init failed: ${initErr.message}` });
+    }
+
+    const db = firebaseApp.firestore();
+    let result: any;
+
+    try {
+      switch (action) {
+        case 'read-doc': {
+          if (!documentPath) {
+            result = { error: 'Document path is required (e.g., users/user123)' };
+            break;
+          }
+          const docRef = db.doc(documentPath);
+          const doc = await docRef.get();
+          if (!doc.exists) {
+            result = { exists: false, path: documentPath, data: null };
+          } else {
+            result = { exists: true, path: documentPath, id: doc.id, data: doc.data() };
+          }
+          break;
+        }
+
+        case 'write-doc': {
+          if (!documentPath) {
+            result = { error: 'Document path is required (e.g., users/user123)' };
+            break;
+          }
+          let writeData: any = {};
+          try {
+            writeData = typeof docData === 'string' ? JSON.parse(docData) : (docData || {});
+          } catch {
+            writeData = { value: docData };
+          }
+          // Add a timestamp
+          writeData._updatedAt = new Date().toISOString();
+          writeData._updatedBy = 'aether-workflow';
+          
+          await db.doc(documentPath).set(writeData, { merge: true });
+          result = { written: true, path: documentPath, data: writeData };
+          break;
+        }
+
+        case 'query-collection': {
+          if (!collectionPath) {
+            result = { error: 'Collection path is required (e.g., users)' };
+            break;
+          }
+          let collRef: any = db.collection(collectionPath);
+          
+          // Apply simple query filters if provided
+          if (queryField) {
+            try {
+              const queryParsed = typeof queryField === 'string' ? JSON.parse(queryField) : queryField;
+              // Support: { field: "status", op: "==", value: "active" }
+              if (queryParsed.field && queryParsed.op && queryParsed.value !== undefined) {
+                collRef = collRef.where(queryParsed.field, queryParsed.op, queryParsed.value);
+              }
+            } catch {
+              // If query parse fails, just fetch all
+            }
+          }
+          
+          const snapshot = await collRef.limit(50).get();
+          const docs: any[] = [];
+          snapshot.forEach((doc: any) => {
+            docs.push({ id: doc.id, ...doc.data() });
+          });
+          result = { collection: collectionPath, count: docs.length, documents: docs };
+          break;
+        }
+
+        case 'delete-doc': {
+          if (!documentPath) {
+            result = { error: 'Document path is required (e.g., users/user123)' };
+            break;
+          }
+          await db.doc(documentPath).delete();
+          result = { deleted: true, path: documentPath };
+          break;
+        }
+
+        default:
+          result = { error: `Unknown Firebase action: ${action}. Supported: read-doc, write-doc, query-collection, delete-doc` };
+      }
+    } finally {
+      // Clean up: delete the temporary Firebase app to prevent memory leaks
+      await firebaseApp.delete();
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    const msg = error.code ? `${error.code}: ${error.message}` : error.message;
+    res.status(500).json({ success: false, error: `Firebase Error: ${msg}` });
+  }
+});
+
+// ===========================================
+// DATABASE OPERATIONS ENDPOINT
+// ===========================================
+app.post('/api/v1/database/execute', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { operation, table, filter, limit, data, dbType, connectionString } = req.body;
+
+    if (!table) {
+      return res.status(400).json({ success: false, error: 'Table name is required' });
+    }
+
+    // SQLite - use Prisma's raw queries on the local database
+    if (!dbType || dbType === 'sqlite') {
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+
+      try {
+        if (operation === 'select') {
+          let query = `SELECT * FROM "${table}"`;
+          const params: any[] = [];
+          
+          if (filter) {
+            try {
+              const filterObj = typeof filter === 'string' ? JSON.parse(filter) : filter;
+              const conditions = Object.entries(filterObj).map(([key, val], i) => {
+                params.push(val);
+                return `"${key}" = ?`;
+              });
+              if (conditions.length > 0) query += ` WHERE ${conditions.join(' AND ')}`;
+            } catch {}
+          }
+
+          if (limit) query += ` LIMIT ${parseInt(limit) || 100}`;
+
+          const rows = await prisma.$queryRawUnsafe(query, ...params);
+          await prisma.$disconnect();
+          return res.json({ success: true, data: rows });
+
+        } else if (operation === 'insert') {
+          let insertData: any = {};
+          try { insertData = typeof data === 'string' ? JSON.parse(data) : (data || {}); } catch { insertData = { value: data }; }
+          
+          const keys = Object.keys(insertData);
+          const placeholders = keys.map(() => '?').join(', ');
+          const values = Object.values(insertData);
+          const query = `INSERT INTO "${table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${placeholders})`;
+          
+          await prisma.$executeRawUnsafe(query, ...values);
+          await prisma.$disconnect();
+          return res.json({ success: true, data: { inserted: true, table, data: insertData } });
+
+        } else if (operation === 'update') {
+          let updateData: any = {};
+          let filterObj: any = {};
+          try { updateData = typeof data === 'string' ? JSON.parse(data) : (data || {}); } catch {}
+          try { filterObj = typeof filter === 'string' ? JSON.parse(filter) : (filter || {}); } catch {}
+
+          const setClauses = Object.keys(updateData).map(k => `"${k}" = ?`);
+          const whereConditions = Object.keys(filterObj).map(k => `"${k}" = ?`);
+          const params = [...Object.values(updateData), ...Object.values(filterObj)];
+
+          let query = `UPDATE "${table}" SET ${setClauses.join(', ')}`;
+          if (whereConditions.length > 0) query += ` WHERE ${whereConditions.join(' AND ')}`;
+
+          await prisma.$executeRawUnsafe(query, ...params);
+          await prisma.$disconnect();
+          return res.json({ success: true, data: { updated: true, table } });
+
+        } else if (operation === 'delete') {
+          let filterObj: any = {};
+          try { filterObj = typeof filter === 'string' ? JSON.parse(filter) : (filter || {}); } catch {}
+
+          const conditions = Object.keys(filterObj).map(k => `"${k}" = ?`);
+          const params = Object.values(filterObj);
+
+          let query = `DELETE FROM "${table}"`;
+          if (conditions.length > 0) query += ` WHERE ${conditions.join(' AND ')}`;
+
+          await prisma.$executeRawUnsafe(query, ...params);
+          await prisma.$disconnect();
+          return res.json({ success: true, data: { deleted: true, table } });
+        }
+
+        await prisma.$disconnect();
+        return res.status(400).json({ success: false, error: `Unknown operation: ${operation}` });
+
+      } catch (sqlErr: any) {
+        try { await prisma.$disconnect(); } catch {}
+        return res.status(500).json({ success: false, error: `SQLite Error: ${sqlErr.message}` });
+      }
+    }
+
+    // PostgreSQL
+    if (dbType === 'postgresql' && connectionString) {
+      const { Pool } = require('pg');
+      const pool = new Pool({ connectionString });
+      
+      try {
+        if (operation === 'select') {
+          let query = `SELECT * FROM "${table}"`;
+          const params: any[] = [];
+          let paramIdx = 1;
+
+          if (filter) {
+            try {
+              const filterObj = typeof filter === 'string' ? JSON.parse(filter) : filter;
+              const conditions = Object.entries(filterObj).map(([key, val]) => {
+                params.push(val);
+                return `"${key}" = $${paramIdx++}`;
+              });
+              if (conditions.length > 0) query += ` WHERE ${conditions.join(' AND ')}`;
+            } catch {}
+          }
+
+          if (limit) query += ` LIMIT ${parseInt(limit) || 100}`;
+
+          const result = await pool.query(query, params);
+          await pool.end();
+          return res.json({ success: true, data: result.rows });
+
+        } else if (operation === 'insert') {
+          let insertData: any = {};
+          try { insertData = typeof data === 'string' ? JSON.parse(data) : (data || {}); } catch { insertData = { value: data }; }
+
+          const keys = Object.keys(insertData);
+          const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+          const values = Object.values(insertData);
+
+          const query = `INSERT INTO "${table}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${placeholders}) RETURNING *`;
+          const result = await pool.query(query, values);
+          await pool.end();
+          return res.json({ success: true, data: result.rows[0] || { inserted: true } });
+        }
+
+        await pool.end();
+        return res.status(400).json({ success: false, error: `Operation "${operation}" not fully implemented for PostgreSQL` });
+
+      } catch (pgErr: any) {
+        try { await pool.end(); } catch {}
+        return res.status(500).json({ success: false, error: `PostgreSQL Error: ${pgErr.message}` });
+      }
+    }
+
+    return res.status(400).json({ success: false, error: `Unsupported database type: ${dbType}. Supported: sqlite, postgresql` });
+
+  } catch (error: any) {
+    logger.error('Database execute error', { error: error.message });
     res.status(500).json({ success: false, error: error.message });
   }
 });

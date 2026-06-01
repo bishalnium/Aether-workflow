@@ -191,6 +191,12 @@ export class WorkflowExecutionEngine {
     this.executedNodes.add(node.id);
     this.nodeResults.set(node.id, result);
 
+    // Check if the node explicitly decided not to pass execution forward (e.g. RAG validator)
+    if (result.status === 'success' && result.data && result.data.passForward === false) {
+      logger.info(`[ENGINE] Node "${node.name}" (${node.id}) decided not to pass execution forward (passForward: false). Path stopped.`);
+      return;
+    }
+
     // Execute downstream nodes
     const outgoingEdges = this.getOutgoingEdges(node.id);
     

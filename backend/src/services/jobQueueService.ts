@@ -169,7 +169,7 @@ class JobQueueService {
   /**
    * Process a job from the queue
    */
-  private async processJob(job: Job<JobPayload>): Promise<any> {
+  private async processJob(job: any): Promise<any> {
     const { workflowId, executionId, input, userId, mode } = job.data;
 
     logger.info(`Processing job: ${job.id}`, { workflowId, executionId, attempt: job.attemptsMade + 1 });

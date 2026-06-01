@@ -118,6 +118,40 @@
       .delay-100 { transition-delay: 100ms; }
       .delay-200 { transition-delay: 200ms; }
       .delay-300 { transition-delay: 300ms; }
+
+      /* ===== Dark Dropdown Styling ===== */
+      select {
+        background-color: #050505 !important;
+        color: #F4F1EA !important;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23F4F1EA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 30px !important;
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      select:focus {
+        border-color: #D90429 !important;
+        box-shadow: 0 0 0 1px rgba(217, 4, 41, 0.3);
+        outline: none;
+      }
+      select:hover {
+        border-color: rgba(255, 255, 255, 0.25) !important;
+      }
+
+      option {
+        background-color: #0a0a0a !important;
+        color: #F4F1EA !important;
+        padding: 8px 12px;
+      }
+      option:checked,
+      option:hover {
+        background: linear-gradient(0deg, #D90429 0%, #D90429 100%) !important;
+        color: #ffffff !important;
+      }
     </style>
   <script type="importmap">
 {

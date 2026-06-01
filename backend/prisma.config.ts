@@ -9,7 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // For SQLite, we use a file path
-    url: process.env["DATABASE_URL"] || "file:./dev.db",
+    // Aiven PostgreSQL cloud database
+    url: process.env["DATABASE_URL"],
   },
 });

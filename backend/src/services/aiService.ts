@@ -1,10 +1,10 @@
 // ===========================================
 // AETHER WORKFLOW ENGINE - AI Service
-// Integration with OpenRouter API
+// Integration with Groq GPT-OSS-120B Model
 // ===========================================
 
-import axios from 'axios';
 import { logger } from '../utils/logger';
+import { groqChat } from '../utils/groqClient';
 
 interface ChatOptions {
   prompt: string;
@@ -14,24 +14,12 @@ interface ChatOptions {
   maxTokens?: number;
 }
 
-interface AIServiceConfig {
-  apiKey: string;
-  baseUrl?: string;
-}
-
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const OPENROUTER_MODEL = 'xiaomi/mimo-v2-flash:free';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 class AIService {
-  private apiKey: string;
-  private baseUrl: string;
-  private rateLimitRemaining: number = 100;
   private lastRequestTime: number = 0;
 
-  constructor() {
-    this.apiKey = OPENROUTER_API_KEY;
-    this.baseUrl = 'https://openrouter.ai/api/v1';
-  }
+  constructor() {}
 
   /**
    * Rate limiting helper
@@ -49,15 +37,14 @@ class AIService {
   }
 
   /**
-   * Chat completion using OpenRouter
+   * Chat completion using rotating Groq GPT-OSS-120B client
    */
   async chat(options: ChatOptions): Promise<string> {
-    const { prompt, systemPrompt, model = OPENROUTER_MODEL, temperature = 0.7, maxTokens } = options;
+    const { prompt, systemPrompt, temperature = 0.7, maxTokens } = options;
 
     await this.rateLimit();
 
     try {
-      // Build messages array for OpenRouter
       const messages: any[] = [];
       
       if (systemPrompt) {
@@ -66,36 +53,20 @@ class AIService {
       
       messages.push({ role: 'user', content: prompt });
 
-      const response = await axios.post(
-        `${this.baseUrl}/chat/completions`,
-        {
-          model: OPENROUTER_MODEL,
-          messages: messages
-        },
-        {
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
-          },
-          timeout: 60000,
-        }
-      );
+      const text = await groqChat({
+        messages,
+        temperature,
+        maxTokens
+      });
 
-      const text = response.data?.choices?.[0]?.message?.content;
-      
       if (!text) {
-        throw new Error('No response generated');
+        throw new Error('No response generated from Groq');
       }
 
-      logger.debug(`AI response generated`, { model: OPENROUTER_MODEL, promptLength: prompt.length });
+      logger.debug(`AI response generated`, { model: GROQ_MODEL, promptLength: prompt.length });
       return text;
     } catch (error: any) {
-      logger.error('AI service error', { error: error.message, model: OPENROUTER_MODEL });
-      
-      if (error.response?.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      
+      logger.error('AI service error', { error: error.message, model: GROQ_MODEL });
       throw new Error(`AI generation failed: ${error.message}`);
     }
   }

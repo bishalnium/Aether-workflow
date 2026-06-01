@@ -23,11 +23,9 @@ const credentialService = {
   }
 };
 
-// OpenRouter API config
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const OPENROUTER_MODEL = 'xiaomi/mimo-v2-flash:free';
+import { groqChat, groqVisionChat } from '../utils/groqClient';
 
-// Inline AI service for node handlers using OpenRouter
+// Inline AI service for node handlers using Groq GPT-OSS-120B with rotation
 const aiService = {
   async chat(options: { prompt: string; systemPrompt?: string; model?: string; temperature?: number }): Promise<string> {
     try {
@@ -39,20 +37,10 @@ const aiService = {
       
       messages.push({ role: 'user', content: options.prompt });
 
-      const response = await axios.post(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          model: OPENROUTER_MODEL,
-          messages: messages
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      return response.data.choices?.[0]?.message?.content || 'No response';
+      return await groqChat({
+        messages,
+        temperature: options.temperature ?? 0.7
+      });
     } catch (error: any) {
       logger.error('AI service error:', error.message);
       return `AI Error: ${error.message}`;
@@ -83,12 +71,12 @@ export const nodeHandlerRegistry = new NodeHandlerRegistry();
 // ===========================================
 
 // Only 3 models supported:
-// 1. mimo-v2-flash (Xiaomi) - Text AI via OpenRouter
+// 1. gpt-oss-120b (GPT-OSS 120B) - Text AI via Groq
 // 2. tavily-search - Web search via Tavily API
 // 3. groq-vision - Image/OCR via Groq API (Llama 4 Scout)
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY || '';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+// GROQ_API_KEY removed — all Groq calls now use groqChat/groqVisionChat with 3-key rotation
 
 // AGENT node handler - routes to appropriate API based on model
 nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
@@ -102,7 +90,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
     configSystemPrompt: node.config?.systemPrompt?.substring(0, 50)
   });
   
-  const { model = 'mimo-v2-flash', systemPrompt } = node.config || {};
+  const { model = 'gpt-oss-120b', systemPrompt } = node.config || {};
   
   // Get user input from webhook body or previous node
   const userMessage = input?.body?.message || input?.body?.question || input?.body?.input || 
@@ -124,9 +112,34 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
       // EMAIL SENDER - Use Resend API
       const emailTo = input?.body?.email || input?.email || node.config?.to || 'bishalpvtxd@gmail.com';
       const emailSubject = node.config?.subject || input?.subject || 'Workflow Notification';
-      const emailBody = input?.response || input?.aiResponse || input?.output || input?.body?.response || 
+      let emailBody = input?.response || input?.aiResponse || input?.output || input?.body?.response || 
                         (typeof input === 'string' ? input : JSON.stringify(input, null, 2));
       
+      // Use LLM to format email body nicely if formatWithAI is enabled (default true)
+      if (node.config?.formatWithAI !== false && emailBody && emailBody.trim() !== '') {
+        try {
+          logger.info(`[MOCK-SENDER] Formatting email body with LLM...`);
+          const formattedBody = await groqChat({
+            messages: [
+              { 
+                role: 'system', 
+                content: `You are an email formatting assistant. Your job is to take raw inputs (which may be JSON, markdown, or search results) and format them into a highly professional, clean, and properly formatted plain text email message.
+Do not include JSON characters, brackets, or code blocks in your final output unless explicitly requested. Output only the clean body of the email.` 
+              },
+              { role: 'user', content: emailBody }
+            ],
+            temperature: 0.3,
+            maxTokens: 2000
+          });
+          if (formattedBody && formattedBody.trim() !== '') {
+            emailBody = formattedBody.trim();
+            logger.info(`[MOCK-SENDER] LLM email formatting completed successfully`);
+          }
+        } catch (llmErr: any) {
+          logger.warn(`[MOCK-SENDER] LLM email formatting failed, sending raw: ${llmErr.message}`);
+        }
+      }
+
       logger.info(`[MOCK-SENDER] Sending email via Resend`, { to: emailTo, subject: emailSubject });
       
       try {
@@ -139,7 +152,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
             html: `<div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2 style="color: #667eea;">🚀 Aether Workflow Result</h2>
                     <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; white-space: pre-wrap;">
-                      ${emailBody}
+                       ${emailBody}
                     </div>
                     <p style="color: #888; margin-top: 20px; font-size: 12px;">Sent by Aether Orchestrate</p>
                    </div>`
@@ -186,7 +199,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
       aiResponse = formattedResponse || 'No search results found.';
       
     } else if (model === 'groq-vision') {
-      // GROQ VISION (for images)
+      // GROQ VISION (for images) — uses 3-key rotation
       const messageContent: any[] = [
         { type: 'text', text: systemPrompt || 'Extract all text from this image.' }
       ];
@@ -197,44 +210,240 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
         messageContent.push({ type: 'image_url', image_url: { url: imageUrl } });
       }
       
-      const response = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [{ role: 'user', content: messageContent }],
-          max_tokens: 4096
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
+      aiResponse = await groqVisionChat({
+        messages: [{ role: 'user', content: messageContent }],
+        maxTokens: 4096
+      }) || 'No text extracted.';
+      
+    } else if (model === 'ddg-search') {
+      // DUCKDUCKGO LLM SEARCH AGENT LOOP (RAG-POWERED)
+      logger.info(`[DDG-SEARCH-RAG] Initiating RAG Agent Loop for: "${userMessage}"`);
+      
+      let attempts = 0;
+      const maxAttempts = 2;
+      let allSearchResults: string[] = [];
+      let lastQuery = userMessage;
+      let isResolved = false;
+      let justification = '';
+      let finalAnswer = '';
+      
+      while (attempts < maxAttempts && !isResolved) {
+        attempts++;
+        logger.info(`[DDG-SEARCH-RAG] Attempt ${attempts}/${maxAttempts}`);
+        
+        // Step 1: Formulate search query using LLM
+        let searchQuery = userMessage;
+        if (attempts === 1) {
+          try {
+            const queryResponse = await groqChat({
+              messages: [
+                { 
+                  role: 'system', 
+                  content: `You are a search query optimizer for the DuckDuckGo Instant Answers API. The API only returns results for Wikipedia-style topic titles or general concepts (e.g., "React (software)", "Retrieval-augmented generation", "Joe Biden"), NOT conversational questions.
+Given the user's question, generate the BEST concise topic name, keyword, or Wikipedia-style title to fetch the information.
+CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "how to", "why does", "define", "explain", "meaning of", "about", etc. Output ONLY the core entity, noun phrase, or concept name. Return ONLY the raw query string, no quotes, no explanation.` 
+                },
+                { role: 'user', content: userMessage }
+              ],
+              temperature: 0.3,
+              maxTokens: 50
+            });
+            searchQuery = queryResponse.trim().replace(/^["']|["']$/g, '') || userMessage;
+          } catch (aiErr: any) {
+            logger.warn(`[DDG-SEARCH-RAG] Attempt 1 query optimization failed: ${aiErr.message}`);
+            searchQuery = userMessage;
+          }
+        } else {
+          // For attempt > 1, ask the LLM to refine the query based on what we already found
+          try {
+            const contextText = allSearchResults.join('\n\n');
+            const refinementResponse = await groqChat({
+              messages: [
+                { 
+                  role: 'system', 
+                  content: `You are a search query refiner for the DuckDuckGo Instant Answers API. The API only returns results for Wikipedia-style topic titles or general concepts, NOT conversational questions. We previously searched for "${lastQuery}" and found insufficient information.
+Based on the user's original question and the current findings, generate a NEW keyword, topic name, or Wikipedia-style title to retrieve the missing details.
+CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "how to", "why does", "define", "explain", "meaning of", "about", etc. Output ONLY the core entity, noun phrase, or concept name. Return ONLY the raw query string, no quotes, no explanation.` 
+                },
+                { role: 'user', content: `Original Question: ${userMessage}\n\nPrevious Findings:\n${contextText.substring(0, 2000)}` }
+              ],
+              temperature: 0.3,
+              maxTokens: 50
+            });
+            searchQuery = refinementResponse.trim().replace(/^["']|["']$/g, '') || userMessage;
+          } catch (aiErr: any) {
+            logger.warn(`[DDG-SEARCH-RAG] Attempt ${attempts} query refinement failed: ${aiErr.message}`);
+            searchQuery = userMessage;
           }
         }
-      );
-      aiResponse = response.data.choices?.[0]?.message?.content || 'No text extracted.';
+        
+        lastQuery = searchQuery;
+        logger.info(`[DDG-SEARCH-RAG] Running search for query: "${searchQuery}"`);
+        
+        // Step 2: Fetch search results
+        let searchData: any = {};
+        try {
+          const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&format=json&no_html=1&skip_disambig=1`;
+          const response = await axios.get(url, { timeout: 8000 });
+          searchData = response.data;
+        } catch (searchErr: any) {
+          logger.error(`[DDG-SEARCH-RAG] Search request failed: ${searchErr.message}`);
+        }
+        
+        // Accumulate findings
+        const currentResults: string[] = [];
+        if (searchData.Abstract) currentResults.push(`[Abstract from ${searchData.AbstractSource || 'web'}]: ${searchData.Abstract}`);
+        if (searchData.Answer) currentResults.push(`[Direct Answer]: ${searchData.Answer}`);
+        if (searchData.Definition) currentResults.push(`[Definition]: ${searchData.Definition}`);
+        if (searchData.Heading) currentResults.push(`[Heading]: ${searchData.Heading}`);
+        (searchData.RelatedTopics || []).slice(0, 10).forEach((t: any) => {
+          if (t.Text) currentResults.push(`[Related Topic]: ${t.Text} (${t.FirstURL || ''})`);
+        });
+        
+        if (currentResults.length > 0) {
+          allSearchResults.push(...currentResults);
+        } else {
+          allSearchResults.push(`No direct answers or abstracts found for query: "${searchQuery}"`);
+        }
+        
+        // Step 3: LLM evaluates results and decides to pass forward or not
+        logger.info(`[DDG-SEARCH-RAG] Evaluating results with LLM...`);
+        const contextBlock = allSearchResults.join('\n\n');
+        
+        try {
+          const evaluationResponse = await groqChat({
+            messages: [
+              { 
+                role: 'system', 
+                content: `You are an AI research validator. You are evaluating if the search results contain sufficient information to answer the user's question.
+You must output a JSON object with the following fields:
+{
+  "isResolved": boolean, // Set to true if the search results are sufficient to answer the user's question. Set to false if key facts are still missing.
+  "justification": "Brief explanation of why the search results are or are not sufficient.",
+  "searchQuerySuggestion": "If isResolved is false, suggest a better search query to find the missing details. Otherwise, leave empty.",
+  "compiledAnswer": "If isResolved is true, provide the final comprehensive answer to the user. Otherwise, provide a draft of what you know so far."
+}
+IMPORTANT: Output ONLY the valid JSON block, nothing else.` 
+              },
+              { 
+                role: 'user', 
+                content: `User's Question: ${userMessage}\n\nSearch Results:\n${contextBlock.substring(0, 4000)}` 
+              }
+            ],
+            temperature: 0.2,
+            maxTokens: 1000
+          });
+          
+          // Parse JSON from LLM response
+          let jsonStart = evaluationResponse.indexOf('{');
+          let jsonEnd = evaluationResponse.lastIndexOf('}');
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            const jsonStr = evaluationResponse.substring(jsonStart, jsonEnd + 1);
+            const evalData = JSON.parse(jsonStr);
+            isResolved = !!evalData.isResolved;
+            justification = evalData.justification || '';
+            finalAnswer = evalData.compiledAnswer || '';
+            
+            logger.info(`[DDG-SEARCH-RAG] Evaluation: isResolved = ${isResolved}. Justification: ${justification}`);
+          } else {
+            // Fallback if not JSON
+            logger.warn(`[DDG-SEARCH-RAG] LLM response was not JSON: ${evaluationResponse}`);
+            isResolved = true; // Stop loop
+            justification = "Failed to parse evaluation JSON.";
+            finalAnswer = evaluationResponse;
+          }
+        } catch (aiErr: any) {
+          logger.error(`[DDG-SEARCH-RAG] LLM evaluation failed: ${aiErr.message}`);
+          isResolved = true; // Stop loop on error
+          justification = `LLM evaluation error: ${aiErr.message}`;
+          finalAnswer = contextBlock;
+        }
+      }
+      
+      aiResponse = finalAnswer;
+      logger.info(`[DDG-SEARCH-RAG] Final decision: passForward = ${isResolved}`);
+      
+      return {
+        ...input,
+        response: aiResponse,
+        aiResponse: aiResponse,
+        answer: aiResponse,
+        output: aiResponse,
+        justification: justification,
+        passForward: isResolved, // This controls whether execution continues downstream!
+        agent: node.name,
+        model: model
+      };
+      
+    } else if (model === 'rss-reader') {
+      // RSS AI FEED ANALYZER (RAG-POWERED)
+      const feedUrl = node.config?.feedUrl || input?.feedUrl || input?.body?.feedUrl || 'https://feeds.bbci.co.uk/news/rss.xml';
+      logger.info(`[RSS-READER-RAG] Fetching and analyzing feed: ${feedUrl}`);
+      
+      const response = await axios.get(feedUrl, { 
+        headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' },
+        timeout: 10000 
+      });
+      const xml = response.data;
+      
+      const items: any[] = [];
+      const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>|<entry[^>]*>([\s\S]*?)<\/entry>/gi;
+      let match;
+      while ((match = itemRegex.exec(xml)) !== null && items.length < 10) {
+        const content = match[1] || match[2];
+        const getTag = (tag: string) => {
+          const m = content.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/${tag}>`, 'is'));
+          return m ? m[1].trim() : null;
+        };
+        items.push({
+          title: getTag('title'),
+          link: getTag('link') || content.match(/href="([^"]+)"/)?.[1] || null,
+          description: getTag('description') || getTag('summary') || getTag('content'),
+          pubDate: getTag('pubDate') || getTag('published') || getTag('updated'),
+        });
+      }
+      
+      const articlesContext = items.map((item, i) => 
+        `[Article ${i + 1}] "${item.title || 'Untitled'}"\nDate: ${item.pubDate || 'Unknown'}\nURL: ${item.link || 'N/A'}\nContent: ${(item.description || '').substring(0, 300)}`
+      ).join('\n\n---\n\n');
+      
+      const userContext = userMessage 
+        ? `The user is specifically interested in: "${userMessage}"\nPlease focus on articles relevant to this topic.`
+        : `Provide a general summary and highlights of the feed.`;
+        
+      try {
+        aiResponse = await groqChat({
+          messages: [
+            { role: 'system', content: `You are an AI content analyst. You've been given articles from an RSS feed. Your job is to:
+1. Summarize the key themes and trends across all articles
+2. Highlight the most important/relevant articles
+3. If the user has a specific interest, filter and rank articles by relevance
+4. Provide actionable insights from the content
+5. Note any breaking news or time-sensitive information
+
+Format: Start with a brief overview, then list key articles with why they matter.` },
+            { role: 'user', content: `**Feed URL:** ${feedUrl}\n**Total Articles:** ${items.length}\n\n${userContext}\n\n**Articles:**\n${articlesContext}` }
+          ],
+          temperature: 0.5,
+          maxTokens: 1500
+        });
+      } catch (aiErr: any) {
+        logger.warn(`[RSS-READER-RAG] AI analysis failed: ${aiErr.message}`);
+        aiResponse = articlesContext;
+      }
       
     } else {
-      // XIAOMI MIMO-V2-FLASH (default text AI)
+      // GPT-OSS-120B (default text AI reasoning)
       const messages: any[] = [];
       if (systemPrompt) {
         messages.push({ role: 'system', content: systemPrompt });
       }
       messages.push({ role: 'user', content: userMessage });
 
-      const response = await axios.post(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          model: OPENROUTER_MODEL,
-          messages: messages
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      aiResponse = response.data.choices?.[0]?.message?.content || 'No response';
+      aiResponse = await groqChat({
+        messages,
+        temperature: 0.7
+      });
     }
     
     logger.info(`[AGENT] Response received`, { 
@@ -354,25 +563,12 @@ nodeHandlerRegistry.register('groq-vision', async (node, input, context) => {
   logger.info(`[GROQ-VISION] Processing image with prompt: ${textPrompt?.substring(0, 100)}`);
   
   if (!imageData) {
-    // If no image, fall back to text-only mode
+    // If no image, fall back to text-only mode with key rotation
     try {
-      const response = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
-          model: GROQ_VISION_MODEL,
-          messages: [{ role: 'user', content: textPrompt }],
-          temperature: 1,
-          max_tokens: 1024
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      const aiResponse = response.data.choices?.[0]?.message?.content || 'No response';
+      const aiResponse = await groqVisionChat({
+        messages: [{ role: 'user', content: textPrompt }],
+        model: GROQ_VISION_MODEL,
+      }) || 'No response';
       
       return {
         ...input,
@@ -410,23 +606,10 @@ nodeHandlerRegistry.register('groq-vision', async (node, input, context) => {
       });
     }
     
-    const response = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        model: GROQ_VISION_MODEL,
-        messages: [{ role: 'user', content: messageContent }],
-        temperature: 1,
-        max_tokens: 1024
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    const aiResponse = response.data.choices?.[0]?.message?.content || 'No text extracted';
+    const aiResponse = await groqVisionChat({
+      messages: [{ role: 'user', content: messageContent }],
+      model: GROQ_VISION_MODEL,
+    }) || 'No text extracted';
     
     logger.info(`[GROQ-VISION] Extraction completed, ${aiResponse.length} chars`);
     
@@ -1018,7 +1201,7 @@ Return the filter function:`;
         const searchTerms = dataQuery.toLowerCase().split(/\s+/);
         const filteredData = uploadedData.filter((record: any) => {
           const recordStr = JSON.stringify(record).toLowerCase();
-          return searchTerms.some(term => recordStr.includes(term));
+          return searchTerms.some((term: string) => recordStr.includes(term));
         });
         
         return {

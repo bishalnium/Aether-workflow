@@ -1,19 +1,48 @@
 // ===========================================
 // AETHER - OAuth Authentication Routes
-// GitHub, Google OAuth Implementation
+// GitHub, Google OAuth with PostgreSQL persistence
 // ===========================================
 
 import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
+import prisma from '../utils/prismaClient';
 
 const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'aether-jwt-secret';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-// In-memory user store (replace with Prisma in production)
-const usersDB: Record<string, any> = {};
+// Helper: Upsert user in PostgreSQL (create if not exists, update if exists)
+async function upsertUser(userData: {
+  email: string;
+  name: string;
+  avatar?: string;
+  provider: string;
+  providerId: string;
+}) {
+  const user = await prisma.user.upsert({
+    where: { email: userData.email },
+    update: {
+      name: userData.name,
+      avatar: userData.avatar,
+    },
+    create: {
+      email: userData.email,
+      name: userData.name,
+      avatar: userData.avatar,
+    }
+  });
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    avatar: user.avatar,
+    provider: userData.provider,
+    providerId: userData.providerId,
+    createdAt: user.createdAt.toISOString(),
+  };
+}
 
 // Helper to create JWT token
 const createToken = (user: any): string => {
@@ -89,18 +118,14 @@ router.get('/github/callback', async (req: Request, res: Response) => {
 
     const githubUser = userResponse.data;
 
-    // Create or update user
-    const user = {
-      id: `github_${githubUser.id}`,
+    // Create or update user in PostgreSQL
+    const user = await upsertUser({
       email: primaryEmail,
       name: githubUser.name || githubUser.login,
       avatar: githubUser.avatar_url,
       provider: 'github',
       providerId: githubUser.id.toString(),
-      createdAt: new Date().toISOString(),
-    };
-
-    usersDB[user.email] = user;
+    });
 
     // Create JWT token
     const token = createToken(user);
@@ -168,18 +193,14 @@ router.get('/google/callback', async (req: Request, res: Response) => {
 
     const googleUser = userResponse.data;
 
-    // Create or update user
-    const user = {
-      id: `google_${googleUser.id}`,
+    // Create or update user in PostgreSQL
+    const user = await upsertUser({
       email: googleUser.email,
       name: googleUser.name,
       avatar: googleUser.picture,
       provider: 'google',
       providerId: googleUser.id,
-      createdAt: new Date().toISOString(),
-    };
-
-    usersDB[user.email] = user;
+    });
 
     // Create JWT token
     const token = createToken(user);
@@ -218,7 +239,7 @@ router.get('/verify', (req: Request, res: Response) => {
 // GET USER BY TOKEN
 // ===========================================
 
-router.get('/me', (req: Request, res: Response) => {
+router.get('/me', async (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -229,10 +250,19 @@ router.get('/me', (req: Request, res: Response) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    const user = usersDB[decoded.email];
     
-    if (user) {
-      res.json({ success: true, user });
+    // Try to get user from database
+    const dbUser = await prisma.user.findFirst({ where: { email: decoded.email } });
+    
+    if (dbUser) {
+      res.json({ success: true, user: {
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name,
+        avatar: dbUser.avatar,
+        provider: decoded.provider,
+        createdAt: dbUser.createdAt.toISOString(),
+      }});
     } else {
       res.json({ success: true, user: decoded });
     }

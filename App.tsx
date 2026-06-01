@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Layout } from './components/Layout';
 import { Landing } from './components/Landing';
 import { Builder } from './components/Builder';
@@ -109,19 +109,27 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // 2. Data Auto-Save Logic
+  // 2. Data Auto-Save Logic — DEBOUNCED to prevent lag during drag operations
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (user && user.email) {
-       const db = loadDB();
-       // Update the entry for this user
-       db[user.email] = {
-          user: user, // Keep profile up to date
+      // Clear any pending save
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      // Debounce: wait 1s after last change before writing to localStorage
+      saveTimerRef.current = setTimeout(() => {
+        const db = loadDB();
+        db[user.email] = {
+          user: user,
           nodes: nodes,
           edges: edges,
           lastUpdated: new Date().toISOString()
-       };
-       saveDB(db);
+        };
+        saveDB(db);
+      }, 1000);
     }
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [nodes, edges, user]);
 
   const handleLogin = (incomingUser: User) => {

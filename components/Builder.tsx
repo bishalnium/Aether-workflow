@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Play, Settings, Terminal, Trash2, Box, Database, Webhook, MessageSquare, Mail, Layers, Zap, X, Search, Code, Briefcase, Megaphone, Users, LayoutGrid, Cpu, Link as LinkIcon, AlertCircle, Save, Sparkles, Globe, Brain, Table, FileText, Minus, Plus, ChevronRight, Keyboard, UploadCloud, File, Image as ImageIcon, FileJson, Paperclip, CheckCircle, Copy, Send, ChevronDown, ChevronUp, Maximize2, Minimize2, MoveHorizontal, Download, ArrowLeft, Wand2, Clock, GitBranch, Filter, Repeat, User, RefreshCw, ArrowRightLeft, Workflow } from 'lucide-react';
+import { Play, Settings, Terminal, Trash2, Box, Database, Webhook, MessageSquare, Mail, Layers, Zap, X, Search, Code, Briefcase, Megaphone, Users, LayoutGrid, Cpu, Link as LinkIcon, AlertCircle, Save, Sparkles, Globe, Brain, Table, FileText, Minus, Plus, ChevronRight, Keyboard, UploadCloud, File, Image as ImageIcon, FileJson, Paperclip, CheckCircle, Copy, Send, ChevronDown, ChevronUp, Maximize2, Minimize2, MoveHorizontal, Download, ArrowLeft, Wand2, Clock, GitBranch, Filter, Repeat, User, RefreshCw, ArrowRightLeft, Workflow, Rss, BookOpen } from 'lucide-react';
 import { generateAgentResponse } from '../services/geminiService';
 import { WorkflowNode, WorkflowEdge, NodeType, LogEntry, Position, Attachment, View } from '../types';
 import { storageService } from '../services/storageService';
@@ -45,7 +45,7 @@ const AGENT_LIBRARY: AgentTemplate[] = [
   { 
     category: 'Development', 
     name: 'Code Reviewer', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Code, 
     color: 'text-blue-400', 
     prompt: `You are an expert senior software engineer specializing in code review and security analysis. Your role is to meticulously analyze code for bugs, security vulnerabilities, performance issues, and adherence to best practices.
@@ -61,7 +61,7 @@ Always be thorough but constructive. Prioritize security issues first, then corr
   { 
     category: 'Development', 
     name: 'Python Scripter', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Terminal, 
     color: 'text-blue-400', 
     prompt: `You are an expert Python developer with 15+ years of experience building production-grade applications. You specialize in writing clean, efficient, and well-documented Python code.
@@ -82,7 +82,7 @@ Output format: Complete Python script with brief usage instructions at the top.`
   { 
     category: 'Development', 
     name: 'Unit Test Gen', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: CheckIcon, 
     color: 'text-cyan-400', 
     prompt: `You are a QA automation expert specializing in test-driven development. Your role is to generate comprehensive unit tests that ensure code reliability and catch edge cases.
@@ -107,7 +107,7 @@ Output format: Complete test file ready to run.`
   { 
     category: 'Development', 
     name: 'Doc Generator', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: FileText, 
     color: 'text-cyan-400', 
     prompt: `You are a professional technical writer with expertise in creating clear, comprehensive documentation for software projects. You transform complex technical concepts into accessible, well-structured documentation.
@@ -131,7 +131,7 @@ Use Markdown formatting. Be accurate - do NOT invent features not present in the
   { 
     category: 'Development', 
     name: 'Bug Triager', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: AlertCircle, 
     color: 'text-red-400', 
     prompt: `You are a seasoned DevOps engineer and bug analyst specializing in debugging complex production systems. You excel at reading error logs, stack traces, and identifying root causes quickly.
@@ -161,7 +161,7 @@ Be precise and actionable. Time is critical during incidents.`
   { 
     category: 'Machine Learning', 
     name: 'Data Cleaner', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Sparkles, 
     color: 'text-indigo-400', 
     prompt: `You are a senior data scientist specializing in data preprocessing and quality assurance. You ensure datasets are clean, consistent, and ready for machine learning pipelines.
@@ -188,7 +188,7 @@ Always preserve data integrity. Document all transformations for reproducibility
   { 
     category: 'Machine Learning', 
     name: 'Feature Engineer', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Table, 
     color: 'text-indigo-400', 
     prompt: `You are a machine learning expert specializing in feature engineering - the art of creating meaningful features that improve model performance. You understand domain knowledge, statistical methods, and ML best practices.
@@ -218,7 +218,7 @@ Focus on interpretable features that domain experts can understand.`
   { 
     category: 'Machine Learning', 
     name: 'Model Trainer', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Brain, 
     color: 'text-violet-400', 
     prompt: `You are a machine learning engineer with deep expertise in training, tuning, and deploying ML models. You understand the full ML lifecycle from experimentation to production.
@@ -280,7 +280,7 @@ Be accurate and objective. Distinguish between facts and opinions. Note when inf
   { 
     category: 'Internet Scraper', 
     name: 'News Aggregator', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: NewspaperIcon, 
     color: 'text-emerald-400', 
     prompt: `You are a professional news analyst and curator. You track breaking news, identify trends, and present balanced summaries of current events.
@@ -309,7 +309,7 @@ Be objective and balanced. Avoid sensationalism. Focus on facts over opinions.`
   { 
     category: 'Marketing', 
     name: 'Copywriter', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Megaphone, 
     color: 'text-fuchsia-400', 
     prompt: `You are an award-winning marketing copywriter with expertise in persuasion psychology, brand voice, and conversion optimization. You craft compelling copy that drives action.
@@ -341,7 +341,7 @@ Use power words. Write at 8th-grade reading level. Test multiple versions.`
   { 
     category: 'Marketing', 
     name: 'Social Manager', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: MessageSquare, 
     color: 'text-pink-400', 
     prompt: `You are a social media strategist with expertise in viral content, community engagement, and platform-specific best practices. You create content that resonates and drives engagement.
@@ -375,7 +375,7 @@ Write in active voice. Use line breaks for readability. Optimize for mobile view
   { 
     category: 'Sales', 
     name: 'Lead Qualifier', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Users, 
     color: 'text-orange-400', 
     prompt: `You are a senior sales development representative (SDR) with expertise in lead qualification and sales intelligence. You efficiently identify high-value prospects and prioritize sales efforts.
@@ -407,7 +407,7 @@ Be data-driven. Focus on actionable intelligence. Time is money in sales.`
   { 
     category: 'Sales', 
     name: 'CRM Formatter', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Database, 
     color: 'text-amber-400', 
     prompt: `You are a CRM data specialist who transforms unstructured lead information into clean, standardized CRM records. You ensure data consistency and completeness for sales operations.
@@ -453,7 +453,7 @@ Never guess at data. Mark uncertain fields as null. Maintain data integrity.`
   { 
     category: 'Email Automation', 
     name: 'Cold Outreach', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Mail, 
     color: 'text-yellow-400', 
     prompt: `You are an expert in B2B cold email outreach with a track record of 40%+ open rates and 15%+ response rates. You write emails that get read, not deleted.
@@ -487,7 +487,7 @@ Never be pushy or salesy. Provide value. Sound human, not robotic. Respect their
   { 
     category: 'Operations', 
     name: 'Summarizer', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: LayoutGrid, 
     color: 'text-gray-300', 
     prompt: `You are an executive assistant specializing in distilling complex information into clear, actionable summaries. You help busy professionals quickly understand key points.
@@ -518,7 +518,7 @@ Write for busy executives. Lead with conclusions. Use bullet points. Be concise 
   { 
     category: 'Operations', 
     name: 'Translator', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: GlobeIcon, 
     color: 'text-gray-300', 
     prompt: `You are a professional translator fluent in 50+ languages with expertise in maintaining tone, context, and cultural nuances across translations. You ensure communications resonate globally.
@@ -582,7 +582,7 @@ Ensure professional formatting. Validate all addresses before sending. Never sen
   { 
     category: 'Human Interaction', 
     name: 'User Input', 
-    model: 'mimo-v2-flash', 
+    model: 'gpt-oss-120b', 
     icon: Keyboard, 
     color: 'text-rose-400', 
     prompt: `You are a conversational interface agent that collects input from users during workflow execution. You ensure clear communication and proper data collection.
@@ -906,6 +906,182 @@ Use this to fetch data from your database.`
 
 Use this to save workflow results to a database.` 
   },
+
+  // Web & Search (Cyan)
+  { 
+    category: 'Web & Search', 
+    name: 'DuckDuckGo Search', 
+    model: 'ddg-search', 
+    icon: Search, 
+    color: 'text-cyan-400', 
+    prompt: `This node searches the web using DuckDuckGo Instant Answers API — completely free, no API key needed.
+
+**HOW IT WORKS:**
+- Enter a search query or receive one from a previous node
+- Returns topic summaries, definitions, Wikipedia abstracts, and related topics
+- Great for getting factual answers and quick information
+
+**LIMITATIONS:**
+- Returns instant answers, not full search result pages
+- Best for factual queries, definitions, and topic summaries
+
+**EXAMPLES:**
+- "What is machine learning"
+- "Python programming language"
+- "Weather API free"` 
+  },
+  { 
+    category: 'Web & Search', 
+    name: 'RSS Feed Reader', 
+    model: 'rss-reader', 
+    icon: Rss, 
+    color: 'text-cyan-400', 
+    prompt: `This node fetches and parses RSS/Atom feeds — completely free, no API key needed.
+
+**CONFIGURATION:**
+- **Feed URL**: The RSS or Atom feed URL to fetch
+- **Max Items**: Maximum number of articles to return (default: 10)
+
+**OUTPUT:**
+Returns a JSON array of articles with: title, link, description, pubDate
+
+**EXAMPLE FEEDS:**
+- BBC News: https://feeds.bbci.co.uk/news/rss.xml
+- TechCrunch: https://techcrunch.com/feed/
+- Hacker News: https://hnrss.org/frontpage` 
+  },
+
+  // Integrations (Violet)
+  { 
+    category: 'Integrations', 
+    name: 'Telegram Bot', 
+    model: 'telegram-bot', 
+    icon: Send, 
+    color: 'text-violet-400', 
+    prompt: `This node connects to a Telegram Bot that YOU create.
+
+**SETUP:**
+1. Open Telegram → search @BotFather → send /newbot
+2. Follow prompts to create your bot and get a Bot Token
+3. Get your Chat ID from @myidbot (send /getid)
+4. Paste both in the config panel below
+
+**ACTIONS:**
+- Send Message: Send a text message to a chat
+- Send Photo: Send an image URL to a chat
+- Get Updates: Get recent messages sent to your bot
+
+**COST:** Free forever. Unlimited messages.` 
+  },
+  { 
+    category: 'Integrations', 
+    name: 'Notion', 
+    model: 'notion', 
+    icon: BookOpen, 
+    color: 'text-violet-400', 
+    prompt: `This node connects to YOUR Notion workspace.
+
+**SETUP:**
+1. Go to notion.so/my-integrations → New Integration
+2. Copy the Integration Token
+3. Open your Notion database → ⋯ menu → Add connections → select your integration
+4. Copy the Database ID from the page URL
+5. Paste token + database ID in the config panel below
+
+**ACTIONS:**
+- Query Database: Read entries from a database
+- Create Page: Add a new page/entry
+- Search: Search across your workspace
+
+**COST:** Free API. 3 requests/second.` 
+  },
+  { 
+    category: 'Integrations', 
+    name: 'Discord', 
+    model: 'discord', 
+    icon: MessageSquare, 
+    color: 'text-indigo-400', 
+    prompt: `This node sends messages to a Discord channel using a Webhook URL.
+
+**SETUP (30 seconds):**
+1. Open your Discord server → Right-click a channel → Edit Channel
+2. Go to Integrations → Webhooks → New Webhook
+3. Copy the Webhook URL
+4. Paste it in the config panel below
+
+**ACTIONS:**
+- Send Message: Post a text message to the channel
+- Send Rich Embed: Send a formatted embed with title, description, and color
+
+**COST:** Free. No rate limits for basic messaging.` 
+  },
+  { 
+    category: 'Integrations', 
+    name: 'Google Sheets', 
+    model: 'google-sheets', 
+    icon: Table, 
+    color: 'text-green-400', 
+    prompt: `This node reads from and writes to YOUR Google Sheets spreadsheet.
+
+**SETUP:**
+1. Go to Google Cloud Console → Create a project
+2. Enable the "Google Sheets API"
+3. Create a Service Account → Generate a JSON key file
+4. Share your spreadsheet with the service account email
+5. Paste the Service Account JSON + Sheet ID in the config panel below
+
+**ACTIONS:**
+- Read Sheet: Fetch rows from a specific range (e.g., Sheet1!A1:Z100)
+- Append Row: Add a new row at the bottom
+- Update Cell: Update a specific cell value
+
+**COST:** Free — Google Sheets API free tier is very generous.` 
+  },
+  { 
+    category: 'Integrations', 
+    name: 'GitHub', 
+    model: 'github-api', 
+    icon: Code, 
+    color: 'text-gray-300', 
+    prompt: `This node connects to YOUR GitHub account using a Personal Access Token (PAT).
+
+**SETUP:**
+1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Select scopes: repo, read:user, read:org
+4. Copy the token and paste it in the config panel below
+
+**ACTIONS:**
+- List Repos: List your repositories
+- Create Issue: Create an issue in a repo
+- List Issues: List issues for a repo
+- Get File: Read a file from a repo
+- Create PR: Create a pull request
+
+**COST:** Free — GitHub API is free with generous rate limits (5000 req/hr with PAT).` 
+  },
+  { 
+    category: 'Integrations', 
+    name: 'Firebase', 
+    model: 'firebase', 
+    icon: Database, 
+    color: 'text-orange-400', 
+    prompt: `This node connects to YOUR Firebase project (Firestore Database).
+
+**SETUP:**
+1. Go to Firebase Console → Create/Open a project
+2. Go to Project Settings → Service Accounts → Generate New Private Key
+3. Copy the JSON key contents and paste in the config panel below
+4. Your Firestore database must be created (Firebase Console → Build → Firestore Database)
+
+**ACTIONS:**
+- Read Document: Get a document by path (e.g., users/user123)
+- Write Document: Create or update a document
+- Query Collection: Query documents in a collection with filters
+- Delete Document: Delete a document by path
+
+**COST:** Free tier — 50K reads + 20K writes + 20K deletes per day.` 
+  },
 ];
 
 // Helper Icons
@@ -914,6 +1090,25 @@ function ShieldIcon(props: any) { return <svg {...props} xmlns="http://www.w3.or
 function GlobeIcon(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>; }
 function ClockIcon(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 function NewspaperIcon(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>; }
+
+// Human-readable model name map for display in left panel + canvas nodes
+const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  'gpt-oss-120b': '🧠 GPT-OSS 120B',
+  'tavily-search': '🔍 Web Search',
+  'groq-vision': '👁️ Vision/OCR',
+  'mock-sender': '📧 Email Sender',
+  'webhook-trigger': '⚡ Webhook',
+  'user-input': '👤 User Input',
+  'duckduckgo-search': '🦆 DuckDuckGo',
+  'rss-feed': '📰 RSS Feed',
+  'github-api': '🐙 GitHub',
+  'telegram-bot': '✈️ Telegram',
+  'notion-api': '📝 Notion',
+  'discord': '💬 Discord',
+  'google-sheets': '📊 Google Sheets',
+  'firebase': '🔥 Firebase',
+};
+const getModelDisplayName = (model: string): string => MODEL_DISPLAY_NAMES[model] || model;
 
 const getEdgePath = (source: Position, target: Position) => {
   const deltaX = target.x - source.x;
@@ -933,7 +1128,9 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<Position>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [lastMousePos, setLastMousePos] = useState<Position>({ x: 0, y: 0 });
+  const lastMousePosRef = useRef<Position>({ x: 0, y: 0 });
+  const rafRef = useRef<number | null>(null);
+  const dragPosRef = useRef<Position | null>(null);
   
   // Interaction State
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -965,13 +1162,13 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
   // Custom API Key Modal State
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [tempApiKey, setTempApiKey] = useState('');
-  const [selectedApiProvider, setSelectedApiProvider] = useState<'openrouter' | 'openai' | 'anthropic' | 'google'>('openrouter');
+  const [selectedApiProvider, setSelectedApiProvider] = useState<'openrouter' | 'openai' | 'anthropic' | 'google' | 'groq'>('openrouter');
   
   // System Settings State (persisted via storageService)
   const [systemSettings, setSystemSettings] = useState({
     apiGateway: 'http://localhost:8080/api/v1',
     environment: 'development' as 'production' | 'staging' | 'development',
-    defaultModel: 'mimo-v2-flash',
+    defaultModel: 'gpt-oss-120b',
   });
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -1154,7 +1351,8 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
                 label: template.name,
                 category: template.category,
                 model: template.model,
-                systemPrompt: template.prompt 
+                systemPrompt: template.prompt,
+                formatWithAI: template.model === 'mock-sender' ? true : undefined
             }
         };
     }
@@ -1183,6 +1381,102 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
 
   const closeContextMenu = () => {
     setContextMenu({ visible: false, x: 0, y: 0, nodeId: null });
+  };
+
+  const addInputEndpoint = (nodeId: string) => {
+    setNodes(nodes.map(n => {
+      if (n.id === nodeId) {
+        const inputCount = n.data.inputEndpoints || 1;
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            inputEndpoints: inputCount + 1
+          }
+        };
+      }
+      return n;
+    }));
+  };
+
+  const removeInputEndpoint = (nodeId: string, idx: number) => {
+    setNodes(nodes.map(n => {
+      if (n.id === nodeId) {
+        const inputCount = n.data.inputEndpoints || 1;
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            inputEndpoints: Math.max(1, inputCount - 1)
+          }
+        };
+      }
+      return n;
+    }));
+
+    setEdges(edges.filter(edge => {
+      if (edge.target === nodeId && edge.targetEndpoint === idx) {
+        return false;
+      }
+      return true;
+    }).map(edge => {
+      if (edge.target === nodeId && edge.targetEndpoint > idx) {
+        return {
+          ...edge,
+          targetEndpoint: edge.targetEndpoint - 1,
+          id: `e-${edge.source}-${edge.sourceEndpoint}-${edge.target}-${edge.targetEndpoint - 1}`
+        };
+      }
+      return edge;
+    }));
+  };
+
+  const addOutputEndpoint = (nodeId: string) => {
+    setNodes(nodes.map(n => {
+      if (n.id === nodeId) {
+        const outputCount = n.data.outputEndpoints || 1;
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            outputEndpoints: outputCount + 1
+          }
+        };
+      }
+      return n;
+    }));
+  };
+
+  const removeOutputEndpoint = (nodeId: string, idx: number) => {
+    setNodes(nodes.map(n => {
+      if (n.id === nodeId) {
+        const outputCount = n.data.outputEndpoints || 1;
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            outputEndpoints: Math.max(1, outputCount - 1)
+          }
+        };
+      }
+      return n;
+    }));
+
+    setEdges(edges.filter(edge => {
+      if (edge.source === nodeId && edge.sourceEndpoint === idx) {
+        return false;
+      }
+      return true;
+    }).map(edge => {
+      if (edge.source === nodeId && edge.sourceEndpoint > idx) {
+        return {
+          ...edge,
+          sourceEndpoint: edge.sourceEndpoint - 1,
+          id: `e-${edge.source}-${edge.sourceEndpoint - 1}-${edge.target}-${edge.targetEndpoint}`
+        };
+      }
+      return edge;
+    }));
   };
 
   const duplicateNode = (nodeId: string) => {
@@ -1266,17 +1560,8 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
     try {
       const availableAgents = getAvailableAgentsDescription();
       
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY || ''}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'xiaomi/mimo-v2-flash:free',
-          messages: [{
-            role: 'user',
-            content: `You are an expert workflow automation architect. Based on the user's description, create a complete workflow using EXISTING agents when possible.
+      const text = await generateAgentResponse(
+        `You are an expert workflow automation architect. Based on the user's description, create a complete workflow using EXISTING agents when possible.
 
 === AVAILABLE AGENTS IN THE SYSTEM ===
 ${availableAgents}
@@ -1322,7 +1607,7 @@ Generate a JSON response with this EXACT structure (no markdown, just pure JSON)
       "name": "Agent Name",
       "category": "Development|Machine Learning|Internet Scraper|Marketing|Sales|Integrations|Vision",
       "type": "AGENT",
-      "model": "mimo-v2-flash|tavily-search|groq-vision|mock-sender|webhook-trigger",
+      "model": "gpt-oss-120b|tavily-search|groq-vision|mock-sender|webhook-trigger",
       "systemPrompt": "The agent's system prompt - use existing agent prompts or write detailed custom ones",
       "position": { "x": 450, "y": 200 },
       "inputEndpoints": 1,
@@ -1340,26 +1625,16 @@ IMPORTANT RULES:
 2. Include "testInput" field with realistic example data for User Input nodes (this is critical for testing!)
 3. Create 3-7 agents depending on complexity
 4. When using EXISTING agents: use their EXACT name and include their system prompt
-5. DEFAULT MODEL is "mimo-v2-flash" for all text-to-text AI agents
+5. DEFAULT MODEL is "gpt-oss-120b" for all text-to-text AI agents
 6. For web search/research: use model "tavily-search"
 7. For image/vision/OCR tasks: use model "groq-vision" - connect AFTER User Input for image uploads
 8. For Email Sender: use model "mock-sender", category "Integrations", include "recipient" and "subject" fields
 9. Position agents left-to-right with x increments of 350
 10. Connect agents logically based on data flow
 11. For workflows with image input: User Input → Image Text Extractor (groq-vision) → other agents
-12. Return ONLY valid JSON, no explanations or markdown`
-          }]
-        })
-      });
-
-      const data = await response.json();
-      
-      // Check for API errors
-      if (data.error) {
-        throw new Error(data.error.message || 'API request failed');
-      }
-      
-      const text = data.choices?.[0]?.message?.content || '';
+12. Return ONLY valid JSON, no explanations or markdown`,
+        'You are an expert workflow automation architect.'
+      );
       console.log('AI Workflow Response:', text);
       
       if (!text || text.trim().length === 0) {
@@ -1397,7 +1672,7 @@ IMPORTANT RULES:
           data: {
             label: agent.name,
             category: agent.category,
-            model: agent.model || 'mimo-v2-flash',
+            model: agent.model || 'gpt-oss-120b',
             // For User Input nodes, use testInput as systemPrompt so it's ready to test
             systemPrompt: isUserInput && agent.testInput ? agent.testInput : agent.systemPrompt,
             inputEndpoints: agent.inputEndpoints || 1,
@@ -1439,17 +1714,8 @@ IMPORTANT RULES:
     addLog('info', 'AI is creating your custom agent...');
 
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY || ''}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'xiaomi/mimo-v2-flash:free',
-          messages: [{
-            role: 'user',
-            content: `You are an expert at creating AI agent configurations. Based on the user's description, create a custom AI agent with a comprehensive system prompt.
+      const text = await generateAgentResponse(
+        `You are an expert at creating AI agent configurations. Based on the user's description, create a custom AI agent with a comprehensive system prompt.
 
 USER REQUEST: "${aiAgentPrompt}"
 
@@ -1457,7 +1723,7 @@ Generate a JSON response with this EXACT structure (no markdown, just pure JSON)
 {
   "name": "Agent Name (short, descriptive)",
   "category": "CUSTOM",
-  "model": "mimo-v2-flash",
+  "model": "gpt-oss-120b",
   "description": "One-line description of what this agent does",
   "systemPrompt": "A comprehensive, professional system prompt of 200+ words that explains:
     1. The agent's role and expertise
@@ -1470,19 +1736,9 @@ Generate a JSON response with this EXACT structure (no markdown, just pure JSON)
 }
 
 Make the systemPrompt extremely detailed and professional. The agent should be production-ready.
-Return ONLY valid JSON, no explanations or markdown.`
-          }]
-        })
-      });
-
-      const data = await response.json();
-      
-      // Check for API errors
-      if (data.error) {
-        throw new Error(data.error.message || 'API request failed');
-      }
-      
-      const text = data.choices?.[0]?.message?.content || '';
+Return ONLY valid JSON, no explanations or markdown.`,
+        'You are a professional AI agent prompt engineer.'
+      );
       console.log('AI Agent Response:', text);
       
       if (!text || text.trim().length === 0) {
@@ -1514,7 +1770,7 @@ Return ONLY valid JSON, no explanations or markdown.`
       const newAgent: AgentTemplate = {
         category: 'Custom AI Agents',
         name: agent.name,
-        model: agent.model || 'mimo-v2-flash',
+        model: agent.model || 'gpt-oss-120b',
         icon: Sparkles,
         color: 'text-purple-400',
         prompt: agent.systemPrompt
@@ -1535,7 +1791,7 @@ Return ONLY valid JSON, no explanations or markdown.`
         data: {
           label: agent.name,
           category: 'Custom AI Agents',
-          model: agent.model || 'mimo-v2-flash',
+          model: agent.model || 'gpt-oss-120b',
           systemPrompt: agent.systemPrompt
         }
       };
@@ -1660,12 +1916,13 @@ Return ONLY valid JSON, no explanations or markdown.`
       if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
           e.preventDefault();
           setIsPanning(true);
-          setLastMousePos({ x: e.clientX, y: e.clientY });
+           lastMousePosRef.current = { x: e.clientX, y: e.clientY };
       }
   };
 
   const handleMouseDownNode = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
+    if (e.button !== 0) return; // Only drag on left click!
     const node = nodes.find(n => n.id === nodeId);
     if (!node || !canvasRef.current) return;
 
@@ -1724,35 +1981,67 @@ Return ONLY valid JSON, no explanations or markdown.`
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!canvasRef.current) return;
     
-    // Handle Canvas Panning
-    if (isPanning) {
-        const deltaX = (e.clientX - lastMousePos.x) / zoom;
-        const deltaY = (e.clientY - lastMousePos.y) / zoom;
-        setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
-        setLastMousePos({ x: e.clientX, y: e.clientY });
-        return;
-    }
-
-    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
     
-    // Project mouse to world coordinates
-    const worldX = (e.clientX - canvasRect.left) / zoom - pan.x;
-    const worldY = (e.clientY - canvasRect.top) / zoom - pan.y;
-
+    // During drag, bypass React state and move DOM directly for instant response
     if (draggingNodeId) {
-      setNodes(prev => prev.map(n => n.id === draggingNodeId ? { 
-        ...n, 
-        position: { 
-          x: worldX - dragOffset.current.x, 
-          y: worldY - dragOffset.current.y 
-        } 
-      } : n));
-    } else if (connectingNodeId) {
-        setMousePos({ x: worldX, y: worldY });
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+      const worldX = (clientX - canvasRect.left) / zoom - pan.x;
+      const worldY = (clientY - canvasRect.top) / zoom - pan.y;
+      const newX = worldX - dragOffset.current.x;
+      const newY = worldY - dragOffset.current.y;
+      
+      // Store latest position in ref for commit on mouse-up
+      dragPosRef.current = { x: newX, y: newY };
+      
+      // Move DOM element directly — zero React overhead
+      const el = document.querySelector(`[data-node-id="${draggingNodeId}"]`) as HTMLElement;
+      if (el) {
+        el.style.left = `${newX}px`;
+        el.style.top = `${newY}px`;
+      }
+      return;
     }
-  }, [draggingNodeId, connectingNodeId, zoom, pan, isPanning, lastMousePos]);
+    
+    // Throttle non-drag operations to animation frame
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    
+    rafRef.current = requestAnimationFrame(() => {
+      if (!canvasRef.current) return;
+      
+      // Handle Canvas Panning
+      if (isPanning) {
+        const deltaX = (clientX - lastMousePosRef.current.x) / zoom;
+        const deltaY = (clientY - lastMousePosRef.current.y) / zoom;
+        setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+        lastMousePosRef.current = { x: clientX, y: clientY };
+        return;
+      }
+
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+      const worldX = (clientX - canvasRect.left) / zoom - pan.x;
+      const worldY = (clientY - canvasRect.top) / zoom - pan.y;
+
+      if (connectingNodeId) {
+        setMousePos({ x: worldX, y: worldY });
+      }
+    });
+  }, [draggingNodeId, connectingNodeId, zoom, pan, isPanning]);
 
   const handleMouseUpCanvas = (e: React.MouseEvent) => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    
+    // Commit dragged node position to React state (single state update)
+    if (draggingNodeId && dragPosRef.current) {
+      const finalPos = dragPosRef.current;
+      setNodes(prev => prev.map(n => n.id === draggingNodeId ? {
+        ...n,
+        position: { x: finalPos.x, y: finalPos.y }
+      } : n));
+      dragPosRef.current = null;
+    }
+    
     setDraggingNodeId(null);
     setConnectingNodeId(null);
     setIsPanning(false);
@@ -1773,6 +2062,8 @@ Return ONLY valid JSON, no explanations or markdown.`
     const executionResults = new Map<string, string>();
     // Also track image URLs separately
     const executionImages = new Map<string, string>();
+    // Track whether a node allows passing execution forward downstream
+    const passForwardMap = new Map<string, boolean>();
 
     try {
         // Start with nodes that have NO incoming edges (can start workflow independently)
@@ -1894,7 +2185,33 @@ Return ONLY valid JSON, no explanations or markdown.`
                     addLog('info', `Sending email from ${senderEmail} to ${recipient}...`, currentNode.id);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     
-                    const bodyContent = inputContext || currentNode.data.systemPrompt || "No content provided.";
+                    let bodyContent = inputContext || currentNode.data.systemPrompt || "No content provided.";
+                    
+                    // Format with AI if enabled (default true)
+                    if (currentNode.data.formatWithAI !== false && bodyContent && bodyContent !== "No content provided.") {
+                        try {
+                            addLog('info', `✨ Formatting email body with AI...`, currentNode.id);
+                            const systemPrompt = `You are an email formatting assistant. Your job is to take raw inputs (which may be JSON, markdown, or search results) and format them into a highly professional, clean, and properly formatted plain text email message.
+Do not include JSON characters, brackets, or code blocks in your final output unless explicitly requested. Output only the clean body of the email.`;
+                            const resp = await fetch('http://localhost:8080/api/v1/ai/chat', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                                body: JSON.stringify({
+                                    prompt: bodyContent,
+                                    systemPrompt: systemPrompt,
+                                    model: 'gpt-oss-120b'
+                                })
+                            });
+                            const chatResult = await resp.json();
+                            if (chatResult.success && chatResult.data?.response) {
+                                bodyContent = chatResult.data.response;
+                                addLog('success', 'AI formatting complete', currentNode.id);
+                            }
+                        } catch (aiFmtErr: any) {
+                            addLog('warning', `AI formatting failed, sending raw content: ${aiFmtErr.message}`, currentNode.id);
+                        }
+                    }
+
                     const subject = currentNode.data.subject || 'Workflow Notification';
                     
                     let emailOutput = '';
@@ -1959,23 +2276,504 @@ Return ONLY valid JSON, no explanations or markdown.`
                     executionResults.set(currentNode.id, emailOutput);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: emailOutput, isExecuting: false } } : n));
 
+                } else if (currentNode.data.model === 'delay') {
+                    // --- DELAY NODE ---
+                    const duration = currentNode.data.duration || 5;
+                    const unit = currentNode.data.durationUnit || 'seconds';
+                    const ms = unit === 'minutes' ? duration * 60000 : unit === 'hours' ? duration * 3600000 : duration * 1000;
+                    addLog('info', `⏱️ Waiting ${duration} ${unit}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    await new Promise(resolve => setTimeout(resolve, Math.min(ms, 30000)));
+                    const delayOutput = inputContext || `Delayed ${duration} ${unit}`;
+                    executionResults.set(currentNode.id, delayOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: `⏱️ Waited ${duration} ${unit}. Data passed through.`, isExecuting: false } } : n));
+                    addLog('success', `Delay complete (${duration} ${unit})`, currentNode.id);
+
+                } else if (currentNode.data.model === 'condition') {
+                    // --- CONDITION NODE ---
+                    const expr = currentNode.data.condition || 'true';
+                    addLog('info', `🔀 Evaluating condition: ${expr}`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    let condResult = false;
+                    try {
+                        let input: any = inputContext;
+                        try { input = JSON.parse(inputContext); } catch {}
+                        condResult = new Function('input', `return !!(${expr})`)(input);
+                    } catch (evalErr: any) {
+                        addLog('warning', `Condition eval error: ${evalErr.message}, defaulting to true`, currentNode.id);
+                        condResult = true;
+                    }
+                    const condOutput = condResult ? 'true' : 'false';
+                    executionResults.set(currentNode.id, inputContext || condOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: `Condition "${expr}" → ${condResult}`, isExecuting: false } } : n));
+                    addLog('success', `Condition result: ${condResult}`, currentNode.id);
+
+                } else if (currentNode.data.model === 'filter') {
+                    // --- FILTER NODE ---
+                    const filterExpr = currentNode.data.filterExpr || 'true';
+                    addLog('info', `🔍 Filtering with: ${filterExpr}`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    let filterOutput = inputContext;
+                    try {
+                        let input: any = inputContext;
+                        try { input = JSON.parse(inputContext); } catch {}
+                        if (Array.isArray(input)) {
+                            const fn = new Function('item', `return !!(${filterExpr})`) as (item: any) => boolean;
+                            const filtered = input.filter(fn);
+                            filterOutput = JSON.stringify(filtered, null, 2);
+                        }
+                    } catch (fErr: any) { addLog('warning', `Filter error: ${fErr.message}`, currentNode.id); }
+                    executionResults.set(currentNode.id, filterOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: filterOutput, isExecuting: false } } : n));
+                    addLog('success', 'Filter applied', currentNode.id);
+
+                } else if (currentNode.data.model === 'loop') {
+                    // --- LOOP NODE ---
+                    addLog('info', `🔁 Processing loop...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    let items: any[] = [];
+                    try { items = JSON.parse(inputContext); if (!Array.isArray(items)) items = [items]; } catch { items = inputContext ? inputContext.split('\n').filter(Boolean) : []; }
+                    const loopOutput = JSON.stringify(items.map((item, i) => ({ index: i, item })), null, 2);
+                    executionResults.set(currentNode.id, loopOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: `Processed ${items.length} items:\n${loopOutput.substring(0, 500)}`, isExecuting: false } } : n));
+                    addLog('success', `Loop processed ${items.length} items`, currentNode.id);
+
+                } else if (currentNode.data.model === 'http-request') {
+                    // --- HTTP REQUEST NODE ---
+                    const url = currentNode.data.url || '';
+                    const method = currentNode.data.httpMethod || 'GET';
+                    addLog('info', `🌐 ${method} ${url}`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    if (!url) {
+                        const errMsg = 'No URL configured for HTTP Request node';
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    } else {
+                        try {
+                            let hdrs: Record<string, string> = { 'Content-Type': 'application/json' };
+                            try { if (currentNode.data.headers) hdrs = { ...hdrs, ...JSON.parse(currentNode.data.headers) }; } catch {}
+                            const fetchOpts: RequestInit = { method, headers: hdrs };
+                            if (['POST', 'PUT', 'PATCH'].includes(method) && currentNode.data.body) fetchOpts.body = currentNode.data.body;
+                            const resp = await fetch(url, fetchOpts);
+                            const text = await resp.text();
+                            let httpOutput = '';
+                            try { httpOutput = JSON.stringify(JSON.parse(text), null, 2); } catch { httpOutput = text; }
+                            executionResults.set(currentNode.id, httpOutput);
+                            setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: `[${resp.status}] ${httpOutput.substring(0, 2000)}`, isExecuting: false } } : n));
+                            addLog('success', `HTTP ${method} ${url} → ${resp.status}`, currentNode.id);
+                        } catch (httpErr: any) {
+                            const errOut = `HTTP Error: ${httpErr.message}`;
+                            executionResults.set(currentNode.id, errOut);
+                            setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errOut, isExecuting: false } } : n));
+                            addLog('error', errOut, currentNode.id);
+                        }
+                    }
+
+                } else if (currentNode.data.model === 'set') {
+                    // --- SET NODE ---
+                    addLog('info', `📦 Setting values...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    let setOutput = inputContext;
+                    try {
+                        let existing: any = {};
+                        try { existing = JSON.parse(inputContext); } catch { existing = { input: inputContext }; }
+                        const vals = JSON.parse(currentNode.data.setValues || '{}');
+                        setOutput = JSON.stringify({ ...existing, ...vals }, null, 2);
+                    } catch { setOutput = currentNode.data.setValues || inputContext; }
+                    executionResults.set(currentNode.id, setOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: setOutput, isExecuting: false } } : n));
+                    addLog('success', 'Values set', currentNode.id);
+
+                } else if (currentNode.data.model === 'transform') {
+                    // --- TRANSFORM NODE ---
+                    const code = currentNode.data.transformCode || 'return input';
+                    addLog('info', `⚡ Running transform...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    let transformOutput = inputContext;
+                    try {
+                        let input: any = inputContext;
+                        try { input = JSON.parse(inputContext); } catch {}
+                        const fn = new Function('input', code);
+                        const result = fn(input);
+                        transformOutput = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+                    } catch (tErr: any) {
+                        transformOutput = `Transform Error: ${tErr.message}`;
+                        addLog('error', transformOutput, currentNode.id);
+                    }
+                    executionResults.set(currentNode.id, transformOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: transformOutput, isExecuting: false } } : n));
+                    addLog('success', 'Transform complete', currentNode.id);
+
+                } else if (currentNode.data.model === 'split') {
+                    // --- SPLIT NODE ---
+                    const field = currentNode.data.splitField || '';
+                    addLog('info', `✂️ Splitting data${field ? ` on "${field}"` : ''}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    let splitOutput = inputContext;
+                    try {
+                        let input: any = inputContext;
+                        try { input = JSON.parse(inputContext); } catch {}
+                        let arr = input;
+                        if (field && typeof input === 'object' && !Array.isArray(input)) {
+                            arr = field.split('.').reduce((o: any, k: string) => o?.[k], input);
+                        }
+                        if (Array.isArray(arr)) {
+                            splitOutput = JSON.stringify(arr.map((item: any, i: number) => ({ index: i, item })), null, 2);
+                        }
+                    } catch {}
+                    executionResults.set(currentNode.id, splitOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: splitOutput, isExecuting: false } } : n));
+                    addLog('success', 'Split complete', currentNode.id);
+
+                } else if (currentNode.data.model === 'merge') {
+                    // --- MERGE NODE ---
+                    addLog('info', `🔗 Merging inputs...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    const allInputs = incomingEdges.map(e => executionResults.get(e.source) || nodes.find(n => n.id === e.source)?.data.output).filter(Boolean);
+                    let mergeOutput = '';
+                    try {
+                        const parsed = allInputs.map(i => { try { return JSON.parse(i!); } catch { return i; } });
+                        mergeOutput = JSON.stringify(parsed.length === 1 ? parsed[0] : parsed, null, 2);
+                    } catch { mergeOutput = allInputs.join('\n---\n'); }
+                    executionResults.set(currentNode.id, mergeOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: mergeOutput, isExecuting: false } } : n));
+                    addLog('success', `Merged ${allInputs.length} inputs`, currentNode.id);
+
+                } else if (currentNode.data.model === 'http-response') {
+                    // --- HTTP RESPONSE NODE ---
+                    addLog('info', `📤 HTTP Response configured`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    const statusCode = currentNode.data.statusCode || 200;
+                    const respBody = currentNode.data.responseBody || inputContext || '{}';
+                    const httpRespOutput = `[HTTP Response: ${statusCode}]\n${respBody}`;
+                    executionResults.set(currentNode.id, httpRespOutput);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: httpRespOutput, isExecuting: false } } : n));
+                    addLog('success', `HTTP Response: ${statusCode}`, currentNode.id);
+
+                } else if (currentNode.data.model === 'db-read' || currentNode.data.model === 'db-write') {
+                    // --- DATABASE NODES ---
+                    const isRead = currentNode.data.model === 'db-read';
+                    const table = currentNode.data.tableName || '';
+                    addLog('info', `🗄️ Database ${isRead ? 'Read' : 'Write'}: ${table || 'no table'}`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const resp = await fetch('http://localhost:8080/api/v1/database/execute', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({
+                                operation: isRead ? 'select' : (currentNode.data.dbOperation || 'insert'),
+                                table, filter: currentNode.data.dbFilter, limit: currentNode.data.dbLimit,
+                                data: isRead ? undefined : inputContext,
+                                dbType: currentNode.data.dbType || 'sqlite',
+                                connectionString: currentNode.data.connectionString || '',
+                            })
+                        });
+                        const result = await resp.json();
+                        const dbOutput = result.success ? JSON.stringify(result.data, null, 2) : `DB Error: ${result.error}`;
+                        executionResults.set(currentNode.id, dbOutput);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: dbOutput, isExecuting: false } } : n));
+                        addLog(result.success ? 'success' : 'error', result.success ? `Database ${isRead ? 'query' : 'write'} complete` : result.error, currentNode.id);
+                    } catch (dbErr: any) {
+                        const dbErrOut = `Database Error: ${dbErr.message}`;
+                        executionResults.set(currentNode.id, dbErrOut);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: dbErrOut, isExecuting: false } } : n));
+                        addLog('error', dbErrOut, currentNode.id);
+                    }
+
+                } else if (currentNode.data.model === 'ddg-search') {
+                    // --- DUCKDUCKGO SEARCH ---
+                    addLog('info', `Searching DuckDuckGo (RAG Loop)...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const query = currentNode.data.searchQuery || inputContext || 'hello';
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/ddg/search`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({ query })
+                        });
+                        const result = await resp.json();
+                        if (result.success) {
+                            const output = result.data?.answer || result.answer || '';
+                            const passForward = result.data?.passForward !== false;
+                            const justification = result.data?.justification || '';
+                            
+                            executionResults.set(currentNode.id, output);
+                            passForwardMap.set(currentNode.id, passForward);
+                            
+                            setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                            addLog('success', `DuckDuckGo RAG complete. Resolved: ${passForward ? 'Yes' : 'No'}`, currentNode.id);
+                            if (justification) {
+                                addLog('info', `Evaluation justification: ${justification}`, currentNode.id);
+                            }
+                        } else {
+                            throw new Error(result.error || 'Search query optimization or verification failed.');
+                        }
+                    } catch (ddgErr: any) {
+                        const errMsg = `DuckDuckGo Error: ${ddgErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        passForwardMap.set(currentNode.id, false); // Block downstream on exception
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+
+                } else if (currentNode.data.model === 'rss-reader') {
+                    // --- RSS FEED READER ---
+                    addLog('info', `Fetching RSS feed...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const feedUrl = currentNode.data.feedUrl || inputContext || '';
+                        const maxItems = currentNode.data.maxItems || 10;
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/rss/fetch`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({ feedUrl, maxItems })
+                        });
+                        const result = await resp.json();
+                        const output = JSON.stringify(result.data || result, null, 2);
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog('success', `RSS feed fetched: ${result.data?.length || 0} articles`, currentNode.id);
+                    } catch (rssErr: any) {
+                        const errMsg = `RSS Error: ${rssErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+
+                } else if (currentNode.data.model === 'github') {
+                    // --- GITHUB INTEGRATION ---
+                    addLog('info', `GitHub: ${currentNode.data.integrationAction || 'list-repos'}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/github/execute`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({
+                                token: currentNode.data.integrationToken,
+                                action: currentNode.data.integrationAction || 'list-repos',
+                                owner: currentNode.data.ghOwner || '',
+                                repo: currentNode.data.ghRepo || '',
+                                issueTitle: currentNode.data.ghIssueTitle || inputContext || '',
+                                issueBody: currentNode.data.ghIssueBody || '',
+                                filePath: currentNode.data.ghFilePath || 'README.md'
+                            })
+                        });
+                        const result = await resp.json();
+                        const output = JSON.stringify(result.data || result, null, 2);
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog(result.success ? 'success' : 'error', result.success ? 'GitHub action complete' : result.error, currentNode.id);
+                    } catch (ghErr: any) {
+                        const errMsg = `GitHub Error: ${ghErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+
+                } else if (currentNode.data.model === 'telegram-bot') {
+                    // --- TELEGRAM BOT ---
+                    addLog('info', `Telegram: ${currentNode.data.integrationAction || 'send-message'}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/telegram/execute`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({
+                                token: currentNode.data.integrationToken,
+                                action: currentNode.data.integrationAction || 'send-message',
+                                chatId: currentNode.data.chatId || '',
+                                message: currentNode.data.messageText || inputContext || 'Hello from Aether!',
+                                photoUrl: currentNode.data.photoUrl || ''
+                            })
+                        });
+                        const result = await resp.json();
+                        const output = JSON.stringify(result.data || result, null, 2);
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog(result.success ? 'success' : 'error', result.success ? 'Telegram action complete' : result.error, currentNode.id);
+                    } catch (tgErr: any) {
+                        const errMsg = `Telegram Error: ${tgErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+
+                } else if (currentNode.data.model === 'notion') {
+                    // --- NOTION ---
+                    addLog('info', `Notion: ${currentNode.data.integrationAction || 'query-database'}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/notion/execute`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({
+                                token: currentNode.data.integrationToken,
+                                action: currentNode.data.integrationAction || 'query-database',
+                                databaseId: currentNode.data.notionDbId || '',
+                                properties: currentNode.data.notionProperties || '',
+                                query: currentNode.data.notionQuery || inputContext || ''
+                            })
+                        });
+                        const result = await resp.json();
+                        const output = JSON.stringify(result.data || result, null, 2);
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog(result.success ? 'success' : 'error', result.success ? 'Notion action complete' : result.error, currentNode.id);
+                    } catch (notionErr: any) {
+                        const errMsg = `Notion Error: ${notionErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+
+
+                } else if (currentNode.data.model === 'discord') {
+                    // --- DISCORD WEBHOOK ---
+                    addLog('info', `Discord: sending message...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const webhookUrl = currentNode.data.discordWebhookUrl;
+                        if (!webhookUrl) throw new Error('Discord Webhook URL is not configured. Click this node and add your webhook URL.');
+                        const message = currentNode.data.discordMessage || inputContext || 'Hello from Aether Workflow!';
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/discord/send`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({ webhookUrl, message, action: currentNode.data.integrationAction || 'send-message' })
+                        });
+                        const result = await resp.json();
+                        const output = result.success ? `Discord message sent successfully!\n\nMessage: "${message}"` : `Error: ${result.error}`;
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog(result.success ? 'success' : 'error', result.success ? 'Discord message sent' : result.error, currentNode.id);
+                    } catch (discordErr: any) {
+                        const errMsg = `Discord Error: ${discordErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+
+                } else if (currentNode.data.model === 'google-sheets') {
+                    // --- GOOGLE SHEETS ---
+                    addLog('info', `Google Sheets: ${currentNode.data.integrationAction || 'read-sheet'}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/sheets/execute`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({
+                                action: currentNode.data.integrationAction || 'read-sheet',
+                                sheetsId: currentNode.data.sheetsId,
+                                range: currentNode.data.sheetsRange || 'Sheet1!A1:Z100',
+                                rowData: currentNode.data.sheetsRowData || inputContext || '[]',
+                                serviceAccountJson: currentNode.data.sheetsServiceAccountJson
+                            })
+                        });
+                        const result = await resp.json();
+                        const output = JSON.stringify(result.data || result, null, 2);
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog(result.success ? 'success' : 'error', result.success ? 'Google Sheets action complete' : result.error, currentNode.id);
+                    } catch (sheetsErr: any) {
+                        const errMsg = `Google Sheets Error: ${sheetsErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+                } else if (currentNode.data.model === 'github-api') {
+                    // --- GITHUB API ---
+                    addLog('info', `GitHub: ${currentNode.data.integrationAction || 'list-repos'}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const token = currentNode.data.integrationToken;
+                        if (!token) throw new Error('GitHub PAT not configured. Add your Personal Access Token in the config panel.');
+                        const action = currentNode.data.integrationAction || 'list-repos';
+                        let apiUrl = 'https://api.github.com/user/repos?sort=updated&per_page=10';
+                        let method = 'GET';
+                        let body: string | undefined;
+                        
+                        if (action === 'list-repos') {
+                            apiUrl = 'https://api.github.com/user/repos?sort=updated&per_page=10';
+                        } else if (action === 'list-issues') {
+                            const repo = currentNode.data.githubRepo || '';
+                            apiUrl = `https://api.github.com/repos/${repo}/issues?state=open&per_page=10`;
+                        } else if (action === 'create-issue') {
+                            const repo = currentNode.data.githubRepo || '';
+                            apiUrl = `https://api.github.com/repos/${repo}/issues`;
+                            method = 'POST';
+                            body = JSON.stringify({ title: inputContext || 'New Issue', body: currentNode.data.githubIssueBody || '' });
+                        } else if (action === 'get-file') {
+                            const repo = currentNode.data.githubRepo || '';
+                            const path = currentNode.data.githubFilePath || 'README.md';
+                            apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+                        }
+                        
+                        const ghResp = await fetch(apiUrl, {
+                            method,
+                            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+                            ...(body ? { body } : {}),
+                        });
+                        const ghData = await ghResp.json();
+                        
+                        let output: string;
+                        if (action === 'list-repos') {
+                            output = (ghData as any[]).map((r: any) => `${r.full_name} ⭐${r.stargazers_count} (${r.language || 'N/A'})`).join('\n');
+                        } else if (action === 'get-file' && ghData.content) {
+                            output = atob(ghData.content.replace(/\n/g, ''));
+                        } else {
+                            output = JSON.stringify(ghData, null, 2).substring(0, 2000);
+                        }
+                        
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog('success', `GitHub ${action} complete`, currentNode.id);
+                    } catch (ghErr: any) {
+                        const errMsg = `GitHub Error: ${ghErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
+                } else if (currentNode.data.model === 'firebase') {
+                    // --- FIREBASE ---
+                    addLog('info', `Firebase: ${currentNode.data.integrationAction || 'read-doc'}...`, currentNode.id);
+                    setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
+                    try {
+                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/firebase/execute`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                            body: JSON.stringify({
+                                action: currentNode.data.integrationAction || 'read-doc',
+                                serviceAccountJson: currentNode.data.firebaseServiceAccountJson,
+                                documentPath: currentNode.data.firebaseDocPath || '',
+                                collectionPath: currentNode.data.firebaseCollectionPath || '',
+                                data: currentNode.data.firebaseData || inputContext || '{}',
+                                query: currentNode.data.firebaseQuery || ''
+                            })
+                        });
+                        const result = await resp.json();
+                        const output = JSON.stringify(result.data || result, null, 2);
+                        executionResults.set(currentNode.id, output);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output, isExecuting: false } } : n));
+                        addLog(result.success ? 'success' : 'error', result.success ? 'Firebase action complete' : result.error, currentNode.id);
+                    } catch (fbErr: any) {
+                        const errMsg = `Firebase Error: ${fbErr.message}`;
+                        executionResults.set(currentNode.id, errMsg);
+                        setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, output: errMsg, isExecuting: false } } : n));
+                        addLog('error', errMsg, currentNode.id);
+                    }
                 } else {
-                    // Standard AI Agent
+                    // --- ACTUAL AI AGENT (gpt-oss-120b, tavily-search, groq-vision) ---
                     addLog('info', `Agent Thinking: ${currentNode.data.label} (Model: ${currentNode.data.model})`, currentNode.id);
                     console.log(`[WORKFLOW] Executing node: ${currentNode.data.label}, Model: ${currentNode.data.model}, Input: ${inputContext?.substring(0, 100)}`);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     
-                    // Check if input contains image data (from User Input node)
                     let textInput = inputContext || "Start";
                     let imageUrl: string | undefined = undefined;
                     
-                    // 1. Check if current node has image directly uploaded (groq-vision config)
                     if (currentNode.data.imageUrl) {
                         imageUrl = currentNode.data.imageUrl;
                         addLog('info', `Using image from node config: ${currentNode.data.imageName || 'image'}`, currentNode.id);
                     }
-                    
-                    // 2. Check executionImages map (set by User Input node during this run)
                     if (!imageUrl) {
                         const upstreamEdge = edges.find(e => e.target === currentNode.id);
                         if (upstreamEdge && executionImages.has(upstreamEdge.source)) {
@@ -1983,8 +2781,6 @@ Return ONLY valid JSON, no explanations or markdown.`
                             addLog('info', 'Image received from User Input execution', currentNode.id);
                         }
                     }
-                    
-                    // 3. Check if upstream node has imageUrl in its data (from previous run)
                     if (!imageUrl) {
                         const upstreamEdge = edges.find(e => e.target === currentNode.id);
                         if (upstreamEdge) {
@@ -1996,56 +2792,49 @@ Return ONLY valid JSON, no explanations or markdown.`
                         }
                     }
                     
-                    // Stronger context injection for Doc Generator or any node relying heavily on inputs
                     let effectivePrompt = currentNode.data.systemPrompt || '';
                     if (currentNode.data.label.includes('Doc Generator') && textInput) {
                         effectivePrompt = `${effectivePrompt}\n\n[INPUT CONTENT TO DOCUMENT]:\n${textInput}`;
                     }
 
-                    const response = await generateAgentResponse(textInput, effectivePrompt, currentNode.data.model, imageUrl);
+                    const response = await generateAgentResponse(
+                        textInput,
+                        effectivePrompt,
+                        currentNode.data.model,
+                        imageUrl,
+                        currentNode.data.customApiKey,
+                        currentNode.data.apiProvider,
+                        currentNode.data.ioType
+                    );
                     console.log(`[WORKFLOW] Response received for ${currentNode.data.label}: ${response?.substring(0, 100)}`);
                     
                     let downloadUrl = undefined;
 
-                    // --- DOC GENERATOR PDF LOGIC ---
                     if (currentNode.data.label === 'Doc Generator' || currentNode.data.label.includes('Doc')) {
                          try {
                              addLog('info', 'Converting output to PDF...', currentNode.id);
                              const doc = new jsPDF();
-                             
-                             // Strip markdown symbols for cleaner PDF text
                              const cleanText = (text: string) => {
                                 return text
-                                    .replace(/#{1,6}\s?/g, '') // Remove headers
-                                    .replace(/\*\*/g, '')      // Remove bold
-                                    .replace(/\*/g, '')        // Remove italics
-                                    .replace(/`/g, '')         // Remove code ticks
-                                    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1'); // Remove links, keep text
+                                    .replace(/#{1,6}\s?/g, '')
+                                    .replace(/\*\*/g, '')
+                                    .replace(/\*/g, '')
+                                    .replace(/`/g, '')
+                                    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
                              };
-
                              const processedText = cleanText(response);
-
-                             // Split text to fit page width
-                             const splitText = doc.splitTextToSize(processedText, 180); // 180mm width (A4 is 210mm)
-                             
+                             const splitText = doc.splitTextToSize(processedText, 180);
                              let y = 20;
                              const pageHeight = 280;
-                             
                              doc.setFontSize(16);
                              doc.text("Generated Documentation", 10, y);
                              y += 15;
                              doc.setFontSize(11);
-                             
-                             // Simple pagination loop
                              for(let i=0; i<splitText.length; i++) {
-                                if (y > pageHeight) {
-                                   doc.addPage();
-                                   y = 20;
-                                }
+                                if (y > pageHeight) { doc.addPage(); y = 20; }
                                 doc.text(splitText[i], 10, y);
                                 y += 6;
                              }
-                             
                              const pdfBlob = doc.output('blob');
                              downloadUrl = URL.createObjectURL(pdfBlob);
                              addLog('success', 'PDF Generated Successfully', currentNode.id);
@@ -2055,9 +2844,7 @@ Return ONLY valid JSON, no explanations or markdown.`
                          }
                     }
 
-                    // Update local execution map immediately
                     executionResults.set(currentNode.id, response);
-
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { 
                         ...n, 
                         data: { 
@@ -2085,16 +2872,77 @@ Return ONLY valid JSON, no explanations or markdown.`
             }
 
             executed.add(currentNode.id);
-            const outgoingEdges = edges.filter(e => e.source === currentNode.id);
-            outgoingEdges.forEach(e => {
-                const nextNode = nodes.find(n => n.id === e.target);
-                if (nextNode) queue.push(nextNode);
-            });
+            const shouldPassForward = passForwardMap.get(currentNode.id) !== false;
+            if (shouldPassForward) {
+                const outgoingEdges = edges.filter(e => e.source === currentNode.id);
+                outgoingEdges.forEach(e => {
+                    const nextNode = nodes.find(n => n.id === e.target);
+                    if (nextNode) queue.push(nextNode);
+                });
+            } else {
+                addLog('warning', `Execution path stopped: RAG agent did not resolve the search.`, currentNode.id);
+            }
             if (executed.size > 20) break; 
         }
         addLog('success', 'Workflow finished.');
+
+        // Save execution to storageService for the Runs page
+        if (user?.email) {
+          const executionEndTime = Date.now();
+          const executionRecord = {
+            id: `exec_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            workflowId: `wf_local_${Date.now()}`,
+            workflowName: nodes[0]?.data.label || 'Unnamed Workflow',
+            status: 'SUCCESS' as const,
+            triggeredBy: 'MANUAL' as const,
+            startedAt: new Date(executionEndTime - (executed.size * 2000)).toISOString(),
+            completedAt: new Date(executionEndTime).toISOString(),
+            duration: executed.size * 2000,
+            nodeExecutions: Array.from(executed).map((nodeId, idx) => {
+              const node = nodes.find(n => n.id === nodeId);
+              return {
+                id: `ne_${Date.now()}_${idx}`,
+                nodeId,
+                nodeName: node?.data.label || 'Unknown',
+                nodeType: node?.type || 'AGENT',
+                status: 'SUCCESS' as const,
+                startedAt: new Date(executionEndTime - ((executed.size - idx) * 2000)).toISOString(),
+                completedAt: new Date(executionEndTime - ((executed.size - idx - 1) * 2000)).toISOString(),
+                duration: 2000,
+                input: executionResults.get(nodeId)?.substring(0, 500),
+                output: (node?.data.output || executionResults.get(nodeId))?.substring(0, 500),
+              };
+            }),
+            logs: logs.slice(0, 50).map((l, i) => ({
+              id: `log_${Date.now()}_${i}`,
+              timestamp: l.timestamp.toISOString(),
+              level: (l.level === 'success' ? 'INFO' : l.level === 'error' ? 'ERROR' : l.level === 'warning' ? 'WARN' : 'INFO') as 'INFO' | 'ERROR' | 'WARN' | 'DEBUG',
+              message: l.message,
+              nodeId: l.nodeId,
+            })),
+          };
+          storageService.addExecution(user.email, executionRecord);
+        }
     } catch (err: any) {
       addLog('error', err.message);
+
+      // Save failed execution too
+      if (user?.email) {
+        const failedRecord = {
+          id: `exec_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          workflowId: `wf_local_${Date.now()}`,
+          workflowName: nodes[0]?.data.label || 'Unnamed Workflow',
+          status: 'FAILED' as const,
+          triggeredBy: 'MANUAL' as const,
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          duration: 0,
+          nodeExecutions: [],
+          logs: [{ id: `log_err_${Date.now()}`, timestamp: new Date().toISOString(), level: 'ERROR' as const, message: err.message }],
+          error: err.message,
+        };
+        storageService.addExecution(user.email, failedRecord);
+      }
     } finally {
       setIsExecuting(false);
     }
@@ -2137,10 +2985,11 @@ Return ONLY valid JSON, no explanations or markdown.`
                           <select 
                             value={systemSettings.defaultModel}
                             onChange={(e) => setSystemSettings(s => ({ ...s, defaultModel: e.target.value }))}
-                            className="w-full bg-black border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cherry outline-none"
+                            className="w-full bg-[#050505] border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cherry outline-none"
                           >
-                              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                              <option value="gemini-3-pro-preview">Gemini 3.0 Pro</option>
+                              <option value="gpt-oss-120b">GPT-OSS 120B (Groq) — Free</option>
+                              <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                              <option value="gemini-3.5-pro">Gemini 3.5 Pro</option>
                               <option value="openrouter-free">OpenRouter (Free)</option>
                           </select>
                       </div>
@@ -2391,7 +3240,7 @@ Return ONLY valid JSON, no explanations or markdown.`
                             </div>
                             <div>
                                <div className="text-xs font-bold text-purple-300 group-hover:text-purple-200">{agent.name}</div>
-                               <div className="text-[10px] text-gray-600 truncate max-w-[140px]">{agent.model}</div>
+                               <div className="text-[10px] text-gray-600 truncate max-w-[140px]">{getModelDisplayName(agent.model)}</div>
                             </div>
                          </button>
                       ))}
@@ -2418,7 +3267,7 @@ Return ONLY valid JSON, no explanations or markdown.`
                                     </div>
                                     <div>
                                         <div className="text-xs font-bold text-gray-300 group-hover:text-white">{agent.name}</div>
-                                        <div className="text-[10px] text-gray-600 truncate max-w-[140px]">{agent.model}</div>
+                                        <div className="text-[10px] text-gray-600 truncate max-w-[140px]">{getModelDisplayName(agent.model)}</div>
                                     </div>
                                  </button>
                              ))}
@@ -2457,6 +3306,23 @@ Return ONLY valid JSON, no explanations or markdown.`
            </button>
            <div className="w-px h-6 bg-white/10 mx-2"></div>
            <span className="text-[9px] text-gray-600 uppercase tracking-wider font-bold">Shift+Drag to Pan</span>
+           <div className="w-px h-6 bg-white/10 mx-2"></div>
+           {nodes.length > 0 && (
+             <button
+               onClick={() => {
+                 if (window.confirm(`Clear entire workflow? This will remove all ${nodes.length} nodes and ${edges.length} connections.`)) {
+                   setNodes([]);
+                   setEdges([]);
+                   setSelectedNodeId(null);
+                   addLog('info', 'Workflow cleared.');
+                 }
+               }}
+               className="px-3 py-1.5 rounded-full glass-panel flex items-center gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors text-[10px] font-bold"
+               title="Clear entire workflow"
+             >
+               <Trash2 className="w-3 h-3" /> Clear All ({nodes.length})
+             </button>
+           )}
         </div>
 
         {/* Horizontal Pan Slider */}
@@ -2539,11 +3405,13 @@ Return ONLY valid JSON, no explanations or markdown.`
               return (
               <div
                 key={node.id}
-                className={`workflow-node absolute w-[280px] glass-panel rounded-2xl shadow-xl transition-all group
+                className={`workflow-node absolute w-[280px] glass-panel rounded-2xl shadow-xl group
                   ${selectedNodeId === node.id ? 'border-cherry ring-1 ring-cherry/50' : 'hover:border-white/30'}
                   ${node.data.isExecuting ? 'ring-2 ring-yellow-500/50' : ''}
+                  ${draggingNodeId === node.id ? '' : 'transition-shadow transition-colors'}
                 `}
                 style={{ left: node.position.x, top: node.position.y, height: NODE_HEIGHT }}
+                data-node-id={node.id}
                 onMouseDown={(e) => handleMouseDownNode(e, node.id)}
                 onContextMenu={(e) => handleContextMenu(e, node.id)}
               >
@@ -2617,71 +3485,71 @@ Return ONLY valid JSON, no explanations or markdown.`
                 <div className="p-4">
                   <h3 className="text-cream font-bold text-sm mb-1 truncate">{node.data.label}</h3>
                   <p className="text-cream/40 text-[10px] font-mono truncate">{node.id}</p>
-                  {node.data.model && <div className="mt-2 text-[10px] bg-white/5 inline-block px-2 py-0.5 rounded text-gray-400">{node.data.model}</div>}
+                  {node.data.model && <div className="mt-2 text-[10px] bg-white/5 inline-block px-2 py-0.5 rounded text-gray-400">{getModelDisplayName(node.data.model)}</div>}
                 </div>
               </div>
             );
             })}
 
-            {/* Context Menu */}
+        </div>
+
+            {/* Context Menu - OUTSIDE transform container so position:fixed works correctly */}
             {contextMenu.visible && contextMenu.nodeId && (
               <div
                 className="fixed glass-panel rounded-xl shadow-2xl z-[9999] border border-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-150 min-w-[240px]"
                 style={{ 
                   left: Math.min(contextMenu.x, window.innerWidth - 260), 
-                  top: Math.min(contextMenu.y, window.innerHeight - 450)
+                  top: Math.min(contextMenu.y, window.innerHeight - 300)
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="py-2">
                   {/* Endpoint Management */}
                   <div className="px-3 py-1 text-[9px] text-gray-500 uppercase tracking-wider font-bold">Endpoints</div>
-                  <div className="px-4 py-2 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-400">Inputs:</span>
-                      <button 
-                        onClick={() => {
-                          setNodes(nodes.map(n => n.id === contextMenu.nodeId 
-                            ? { ...n, data: { ...n.data, inputEndpoints: Math.max(1, (n.data.inputEndpoints || 1) - 1) } } 
-                            : n
-                          ));
-                        }}
-                        className="w-5 h-5 rounded bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white flex items-center justify-center text-xs"
-                      >-</button>
-                      <span className="text-xs text-white w-4 text-center">{nodes.find(n => n.id === contextMenu.nodeId)?.data.inputEndpoints || 1}</span>
-                      <button 
-                        onClick={() => {
-                          setNodes(nodes.map(n => n.id === contextMenu.nodeId 
-                            ? { ...n, data: { ...n.data, inputEndpoints: (n.data.inputEndpoints || 1) + 1 } } 
-                            : n
-                          ));
-                        }}
-                        className="w-5 h-5 rounded bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white flex items-center justify-center text-xs"
-                      >+</button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-400">Outputs:</span>
-                      <button 
-                        onClick={() => {
-                          setNodes(nodes.map(n => n.id === contextMenu.nodeId 
-                            ? { ...n, data: { ...n.data, outputEndpoints: Math.max(1, (n.data.outputEndpoints || 1) - 1) } } 
-                            : n
-                          ));
-                        }}
-                        className="w-5 h-5 rounded bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white flex items-center justify-center text-xs"
-                      >-</button>
-                      <span className="text-xs text-white w-4 text-center">{nodes.find(n => n.id === contextMenu.nodeId)?.data.outputEndpoints || 1}</span>
-                      <button 
-                        onClick={() => {
-                          setNodes(nodes.map(n => n.id === contextMenu.nodeId 
-                            ? { ...n, data: { ...n.data, outputEndpoints: (n.data.outputEndpoints || 1) + 1 } } 
-                            : n
-                          ));
-                        }}
-                        className="w-5 h-5 rounded bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white flex items-center justify-center text-xs"
-                      >+</button>
-                    </div>
-                  </div>
+                  {(() => {
+                    const contextNode = nodes.find(n => n.id === contextMenu.nodeId);
+                    const inputCount = contextNode?.data.inputEndpoints || 1;
+                    const outputCount = contextNode?.data.outputEndpoints || 1;
+                    return (
+                      <>
+                        {/* Inputs */}
+                        {Array.from({ length: inputCount }).map((_, idx) => (
+                          <button
+                            key={`ctx-in-rem-${idx}`}
+                            onClick={() => { removeInputEndpoint(contextMenu.nodeId!, idx); closeContextMenu(); }}
+                            className="w-full text-left px-4 py-2 text-xs text-red-400/90 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
+                          >
+                            <Minus className="w-3.5 h-3.5 text-red-500" /> Remove Input {idx + 1}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => { addInputEndpoint(contextMenu.nodeId!); closeContextMenu(); }}
+                          className="w-full text-left px-4 py-2 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-3 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-emerald-400" /> Add Input
+                        </button>
+
+                        <div className="h-px bg-white/5 my-1" />
+
+                        {/* Outputs */}
+                        {Array.from({ length: outputCount }).map((_, idx) => (
+                          <button
+                            key={`ctx-out-rem-${idx}`}
+                            onClick={() => { removeOutputEndpoint(contextMenu.nodeId!, idx); closeContextMenu(); }}
+                            className="w-full text-left px-4 py-2 text-xs text-red-400/90 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
+                          >
+                            <Minus className="w-3.5 h-3.5 text-red-500" /> Remove Output {idx + 1}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => { addOutputEndpoint(contextMenu.nodeId!); closeContextMenu(); }}
+                          className="w-full text-left px-4 py-2 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-3 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-emerald-400" /> Add Output
+                        </button>
+                      </>
+                    );
+                  })()}
                   
                   <div className="h-px bg-white/10 my-2" />
                   
@@ -2730,7 +3598,6 @@ Return ONLY valid JSON, no explanations or markdown.`
                 </div>
               </div>
             )}
-        </div>
         
         {/* --- RIGHT SIDE COMBINED PANEL --- */}
         <div className="absolute right-4 top-4 bottom-4 w-96 flex flex-col z-40">
@@ -2961,6 +3828,23 @@ Return ONLY valid JSON, no explanations or markdown.`
                                   className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cherry focus:outline-none rounded-md"
                                 />
                              </div>
+                             <div className="space-y-2 mb-3">
+                                 <div className="flex items-center gap-2 py-1">
+                                    <input 
+                                      type="checkbox"
+                                      id="email-format-ai"
+                                      checked={selectedNode.data.formatWithAI !== false}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, formatWithAI: e.target.checked } } : n))}
+                                      className="w-3.5 h-3.5 rounded border-white/10 bg-black/50 text-cherry focus:ring-cherry focus:ring-offset-0 focus:ring-1 cursor-pointer"
+                                    />
+                                    <label htmlFor="email-format-ai" className="text-[10px] font-bold text-cream/80 cursor-pointer uppercase tracking-wider flex items-center gap-1">
+                                      ✨ AI Formatting (Clean messages)
+                                    </label>
+                                 </div>
+                                 <p className="text-[9px] text-gray-500">
+                                   Automatically converts raw inputs (JSON, search findings) into a clean, professional email body.
+                                 </p>
+                              </div>
                              <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Email Body Template</label>
                                 <textarea 
@@ -3260,6 +4144,31 @@ Return ONLY valid JSON, no explanations or markdown.`
                           // --- DATABASE NODES CONFIGURATION ---
                           <>
                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Database Type</label>
+                                <select 
+                                  value={selectedNode.data.dbType || 'sqlite'}
+                                  onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, dbType: e.target.value } } : n))}
+                                  className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md"
+                                >
+                                  <option value="sqlite">SQLite (Local)</option>
+                                  <option value="postgresql">PostgreSQL</option>
+                                  <option value="mysql">MySQL</option>
+                                </select>
+                             </div>
+                             {selectedNode.data.dbType && selectedNode.data.dbType !== 'sqlite' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Connection String</label>
+                                  <input 
+                                    type="text" 
+                                    value={selectedNode.data.connectionString || ''}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, connectionString: e.target.value } } : n))}
+                                    placeholder={selectedNode.data.dbType === 'postgresql' ? 'postgresql://user:pass@localhost:5432/db' : 'mysql://user:pass@localhost:3306/db'}
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md font-mono"
+                                  />
+                                  <p className="text-[9px] text-gray-500">Full connection URL</p>
+                               </div>
+                             )}
+                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Table Name</label>
                                 <input 
                                   type="text" 
@@ -3307,7 +4216,690 @@ Return ONLY valid JSON, no explanations or markdown.`
                                </div>
                              )}
                           </>
-                        ) : selectedNode.type === NodeType.AGENT ? (
+                        ) : selectedNode.data.category === 'Web & Search' ? (
+                          // --- WEB & SEARCH CONFIGURATION ---
+                          <>
+                             {selectedNode.data.model === 'ddg-search' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Search Query</label>
+                                  <input 
+                                    type="text" 
+                                    value={selectedNode.data.searchQuery || ''}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, searchQuery: e.target.value } } : n))}
+                                    placeholder="What is machine learning?"
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
+                                  />
+                                  <p className="text-[9px] text-gray-500">Leave empty to use input from the previous node</p>
+                                  <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
+                                     <p className="text-[9px] text-emerald-400">✅ No API key needed — DuckDuckGo is completely free</p>
+                                  </div>
+                               </div>
+                             )}
+                             {selectedNode.data.model === 'rss-reader' && (
+                               <>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Feed URL</label>
+                                    <input 
+                                      type="text" 
+                                      value={selectedNode.data.feedUrl || ''}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, feedUrl: e.target.value } } : n))}
+                                      placeholder="https://feeds.bbci.co.uk/news/rss.xml"
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md font-mono"
+                                    />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Max Items</label>
+                                    <input 
+                                      type="number" 
+                                      value={selectedNode.data.maxItems || 10}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, maxItems: parseInt(e.target.value) || 10 } } : n))}
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
+                                    />
+                                 </div>
+                                 <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
+                                    <p className="text-[9px] text-emerald-400">✅ No API key needed — RSS is an open standard</p>
+                                 </div>
+                               </>
+                             )}
+                             {selectedNode.data.model === 'transform' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Transform Code</label>
+                                  <textarea 
+                                    value={selectedNode.data.transformCode || ''}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, transformCode: e.target.value } } : n))}
+                                    rows={6}
+                                    placeholder={'// Input is available as `input`\nreturn {\n  ...input,\n  processed: true,\n  timestamp: Date.now()\n}'}
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-lime-400 focus:outline-none resize-none font-mono rounded-md"
+                                  />
+                                  <p className="text-[9px] text-gray-500 mt-1">JavaScript code to transform input data</p>
+                               </div>
+                             )}
+                             {selectedNode.data.model === 'set' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Values (JSON)</label>
+                                  <textarea 
+                                    value={selectedNode.data.setValues || ''}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, setValues: e.target.value } } : n))}
+                                    rows={4}
+                                    placeholder='{"status": "processed", "version": 1}'
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-emerald-400 focus:outline-none resize-none font-mono rounded-md"
+                                  />
+                                  <p className="text-[9px] text-gray-500 mt-1">Key-value pairs to add/set in the data</p>
+                               </div>
+                             )}
+                             {selectedNode.data.model === 'split' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Array Field to Split</label>
+                                  <input 
+                                    type="text" 
+                                    value={selectedNode.data.splitField || ''}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, splitField: e.target.value } } : n))}
+                                    placeholder="items"
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-emerald-400 focus:outline-none rounded-md font-mono"
+                                  />
+                                  <p className="text-[9px] text-gray-500 mt-1">Path to the array field (e.g., "data.items")</p>
+                               </div>
+                             )}
+                             {selectedNode.data.model === 'merge' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Merge Mode</label>
+                                  <select 
+                                    value={selectedNode.data.mergeMode || 'combine'}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, mergeMode: e.target.value } } : n))}
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-emerald-400 focus:outline-none rounded-md"
+                                  >
+                                    <option value="combine">Combine All</option>
+                                    <option value="waitAll">Wait for All</option>
+                                    <option value="keepMatching">Keep Matching</option>
+                                  </select>
+                               </div>
+                             )}
+                          </>
+                        ) : selectedNode.data.category === 'Database' ? (
+                          // --- DATABASE NODES CONFIGURATION ---
+                          <>
+                             <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Database Type</label>
+                                <select 
+                                  value={selectedNode.data.dbType || 'sqlite'}
+                                  onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, dbType: e.target.value } } : n))}
+                                  className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md"
+                                >
+                                  <option value="sqlite">SQLite (Local)</option>
+                                  <option value="postgresql">PostgreSQL</option>
+                                  <option value="mysql">MySQL</option>
+                                </select>
+                             </div>
+                             {selectedNode.data.dbType && selectedNode.data.dbType !== 'sqlite' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Connection String</label>
+                                  <input 
+                                    type="text" 
+                                    value={selectedNode.data.connectionString || ''}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, connectionString: e.target.value } } : n))}
+                                    placeholder={selectedNode.data.dbType === 'postgresql' ? 'postgresql://user:pass@localhost:5432/db' : 'mysql://user:pass@localhost:3306/db'}
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md font-mono"
+                                  />
+                                  <p className="text-[9px] text-gray-500">Full connection URL</p>
+                               </div>
+                             )}
+                             <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Table Name</label>
+                                <input 
+                                  type="text" 
+                                  value={selectedNode.data.tableName || ''}
+                                  onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, tableName: e.target.value } } : n))}
+                                  placeholder="users"
+                                  className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md font-mono"
+                                />
+                             </div>
+                             {selectedNode.data.model === 'db-read' && (
+                               <>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Filter (JSON)</label>
+                                    <textarea 
+                                      value={selectedNode.data.dbFilter || ''}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, dbFilter: e.target.value } } : n))}
+                                      rows={2}
+                                      placeholder='{"status": "active"}'
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-orange-400 focus:outline-none resize-none font-mono rounded-md"
+                                    />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Limit</label>
+                                    <input 
+                                      type="number" 
+                                      value={selectedNode.data.dbLimit || 100}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, dbLimit: parseInt(e.target.value) } } : n))}
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md font-mono"
+                                    />
+                                 </div>
+                               </>
+                             )}
+                             {selectedNode.data.model === 'db-write' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Operation</label>
+                                  <select 
+                                    value={selectedNode.data.dbOperation || 'insert'}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, dbOperation: e.target.value } } : n))}
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md"
+                                  >
+                                    <option value="insert">Insert</option>
+                                    <option value="update">Update</option>
+                                    <option value="upsert">Upsert</option>
+                                  </select>
+                               </div>
+                             )}
+                          </>
+                        ) : selectedNode.data.category === 'Web & Search' ? (
+                          // --- WEB & SEARCH CONFIGURATION ---
+                          <>
+                             {selectedNode.data.model === 'ddg-search' && (
+                               <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Search Query</label>
+                                  <input 
+                                    type="text" 
+                                    value={selectedNode.data.searchQuery || ''}
+                                    onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, searchQuery: e.target.value } } : n))}
+                                    placeholder="What is machine learning?"
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
+                                  />
+                                  <p className="text-[9px] text-gray-500">Leave empty to use input from the previous node</p>
+                                  <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
+                                     <p className="text-[9px] text-emerald-400">✅ No API key needed — DuckDuckGo is completely free</p>
+                                  </div>
+                               </div>
+                             )}
+                             {selectedNode.data.model === 'rss-reader' && (
+                               <>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Feed URL</label>
+                                    <input 
+                                      type="text" 
+                                      value={selectedNode.data.feedUrl || ''}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, feedUrl: e.target.value } } : n))}
+                                      placeholder="https://feeds.bbci.co.uk/news/rss.xml"
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md font-mono"
+                                    />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Max Items</label>
+                                    <input 
+                                      type="number" 
+                                      value={selectedNode.data.maxItems || 10}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, maxItems: parseInt(e.target.value) || 10 } } : n))}
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
+                                    />
+                                 </div>
+                                 <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
+                                    <p className="text-[9px] text-emerald-400">✅ No API key needed — RSS is an open standard</p>
+                                 </div>
+                               </>
+                             )}
+                          </>
+                        ) : selectedNode.data.category === 'Integrations' ? (
+                          // --- INTEGRATIONS CONFIGURATION ---
+                          <>
+                             {selectedNode.data.model === 'github-api' && (
+                               <>
+                                  <div className="p-2.5 bg-violet-500/10 border border-violet-500/30 rounded-lg">
+                                    <p className="text-[9px] font-bold text-violet-400 mb-1">🔑 Get Your Token (2 min)</p>
+                                    <ol className="text-[9px] text-violet-400/70 space-y-0.5 list-decimal list-inside">
+                                      <li>github.com → Settings → Developer Settings</li>
+                                      <li>Personal Access Tokens → Fine-grained tokens</li>
+                                      <li>Generate new token → Copy it here</li>
+                                    </ol>
+                                  </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
+                                       GitHub Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
+                                    </label>
+                                    <input 
+                                      type="password" 
+                                      value={selectedNode.data.integrationToken || ''}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationToken: e.target.value } } : n))}
+                                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                    />
+                                    <p className="text-[9px] text-gray-500">🔒 Your token is never stored on any server</p>
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Action</label>
+                                    <select 
+                                      value={selectedNode.data.integrationAction || 'list-repos'}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationAction: e.target.value } } : n))}
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
+                                    >
+                                      <option value="list-repos">📁 List Repos</option>
+                                      <option value="list-issues">🐛 List Issues</option>
+                                      <option value="create-issue">➕ Create Issue</option>
+                                      <option value="read-file">📄 Read File</option>
+                                      <option value="list-commits">📝 List Commits</option>
+                                    </select>
+                                 </div>
+                                 {selectedNode.data.integrationAction !== 'list-repos' && (
+                                   <>
+                                     <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Owner / Org</label>
+                                        <input 
+                                          type="text" 
+                                          value={selectedNode.data.ghOwner || ''}
+                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghOwner: e.target.value } } : n))}
+                                          placeholder="octocat"
+                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
+                                        />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Repository</label>
+                                        <input 
+                                          type="text" 
+                                          value={selectedNode.data.ghRepo || ''}
+                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghRepo: e.target.value } } : n))}
+                                          placeholder="my-project"
+                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
+                                        />
+                                     </div>
+                                   </>
+                                 )}
+                                 {selectedNode.data.integrationAction === 'create-issue' && (
+                                   <>
+                                     <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Issue Title</label>
+                                        <input 
+                                          type="text" 
+                                          value={selectedNode.data.ghIssueTitle || ''}
+                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghIssueTitle: e.target.value } } : n))}
+                                          placeholder="Bug: Something is broken"
+                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
+                                        />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Issue Body</label>
+                                        <textarea 
+                                          value={selectedNode.data.ghIssueBody || ''}
+                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghIssueBody: e.target.value } } : n))}
+                                          rows={3}
+                                          placeholder="Description of the issue..."
+                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-violet-400 focus:outline-none resize-none font-mono rounded-md"
+                                        />
+                                     </div>
+                                   </>
+                                 )}
+                                 {selectedNode.data.integrationAction === 'read-file' && (
+                                   <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">File Path</label>
+                                      <input 
+                                        type="text" 
+                                        value={selectedNode.data.ghFilePath || ''}
+                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghFilePath: e.target.value } } : n))}
+                                        placeholder="README.md"
+                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                      />
+                                   </div>
+                                 )}
+                               </>
+                             )}
+
+                             {selectedNode.data.model === 'telegram-bot' && (
+                               <>
+                                  <div className="p-2.5 bg-sky-500/10 border border-sky-500/30 rounded-lg">
+                                    <p className="text-[9px] font-bold text-sky-400 mb-1">🤖 Get Your Bot Token (1 min)</p>
+                                    <ol className="text-[9px] text-sky-400/70 space-y-0.5 list-decimal list-inside">
+                                      <li>Open Telegram → Search @BotFather</li>
+                                      <li>Send /newbot and follow instructions</li>
+                                      <li>Copy the token (format: 123456:ABC...)</li>
+                                      <li>Get your Chat ID from @myidbot</li>
+                                    </ol>
+                                  </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
+                                       Bot Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
+                                    </label>
+                                    <input 
+                                      type="password" 
+                                      value={selectedNode.data.integrationToken || ''}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationToken: e.target.value } } : n))}
+                                      placeholder="7123456789:AAHfiqksKZ8WmR2..."
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                    />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Chat ID</label>
+                                    <input 
+                                      type="text" 
+                                      value={selectedNode.data.chatId || ''}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, chatId: e.target.value } } : n))}
+                                      placeholder="123456789"
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                    />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Action</label>
+                                    <select 
+                                      value={selectedNode.data.integrationAction || 'send-message'}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationAction: e.target.value } } : n))}
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
+                                    >
+                                      <option value="send-message">💬 Send Message</option>
+                                      <option value="send-photo">📷 Send Photo</option>
+                                      <option value="get-updates">📥 Get Updates</option>
+                                    </select>
+                                 </div>
+                                 {(selectedNode.data.integrationAction === 'send-message' || !selectedNode.data.integrationAction) && (
+                                   <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Message</label>
+                                      <textarea 
+                                        value={selectedNode.data.messageText || ''}
+                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, messageText: e.target.value } } : n))}
+                                        rows={3}
+                                        placeholder="Hello from Aether! Leave empty to use input from previous node."
+                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-violet-400 focus:outline-none resize-none font-mono rounded-md"
+                                      />
+                                   </div>
+                                 )}
+                                 {selectedNode.data.integrationAction === 'send-photo' && (
+                                   <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Photo URL</label>
+                                      <input 
+                                        type="text" 
+                                        value={selectedNode.data.photoUrl || ''}
+                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, photoUrl: e.target.value } } : n))}
+                                        placeholder="https://example.com/image.jpg"
+                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                      />
+                                   </div>
+                                 )}
+                               </>
+                             )}
+
+                             {selectedNode.data.model === 'notion' && (
+                               <>
+                                  <div className="p-2.5 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                                    <p className="text-[9px] font-bold text-orange-400 mb-1">🔗 Get Your Token (2 min)</p>
+                                    <ol className="text-[9px] text-orange-400/70 space-y-0.5 list-decimal list-inside">
+                                      <li>Go to notion.so/my-integrations</li>
+                                      <li>Create New Integration → Copy Internal Token</li>
+                                      <li>Go to your Database → Share → Invite your integration</li>
+                                    </ol>
+                                  </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
+                                       Notion Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
+                                    </label>
+                                    <input 
+                                      type="password" 
+                                      value={selectedNode.data.integrationToken || ''}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationToken: e.target.value } } : n))}
+                                      placeholder="ntn_xxxxxxxxxxxxxxxxxxxx"
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                    />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Action</label>
+                                    <select 
+                                      value={selectedNode.data.integrationAction || 'query-database'}
+                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationAction: e.target.value } } : n))}
+                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
+                                    >
+                                      <option value="query-database">📊 Query Database</option>
+                                      <option value="create-page">➕ Create Page</option>
+                                      <option value="search">🔍 Search</option>
+                                    </select>
+                                 </div>
+                                 {(selectedNode.data.integrationAction === 'query-database' || !selectedNode.data.integrationAction) && (
+                                   <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Database ID</label>
+                                      <input 
+                                        type="text" 
+                                        value={selectedNode.data.notionDbId || ''}
+                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, notionDbId: e.target.value } } : n))}
+                                        placeholder="abc123def456..."
+                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                      />
+                                      <p className="text-[9px] text-gray-500">32-char ID from your database page URL</p>
+                                   </div>
+                                 )}
+                                 {selectedNode.data.integrationAction === 'create-page' && (
+                                   <>
+                                     <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Database ID</label>
+                                        <input 
+                                          type="text" 
+                                          value={selectedNode.data.notionDbId || ''}
+                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, notionDbId: e.target.value } } : n))}
+                                          placeholder="abc123def456..."
+                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
+                                        />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Properties (JSON)</label>
+                                        <textarea 
+                                          value={selectedNode.data.notionProperties || ''}
+                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, notionProperties: e.target.value } } : n))}
+                                          rows={4}
+                                          placeholder='{"Name": {"title": [{"text": {"content": "New Entry"}}]}}'
+                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-violet-400 focus:outline-none resize-none font-mono rounded-md"
+                                        />
+                                     </div>
+                                   </>
+                                 )}
+                                 {selectedNode.data.integrationAction === 'search' && (
+                                   <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Search Query</label>
+                                      <input 
+                                        type="text" 
+                                        value={selectedNode.data.notionQuery || ''}
+                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, notionQuery: e.target.value } } : n))}
+                                        placeholder="meeting notes"
+                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
+                                      />
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                        
+                              {selectedNode.data.model === 'discord' && (
+                                <>
+                                  <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
+                                    <p className="text-[9px] font-bold text-indigo-400 mb-1">Quick Setup (30 sec)</p>
+                                    <ol className="text-[9px] text-indigo-400/70 space-y-0.5 list-decimal list-inside">
+                                      <li>Right-click Discord channel - Edit Channel</li>
+                                      <li>Integrations - Webhooks - New Webhook</li>
+                                      <li>Copy Webhook URL and paste below</li>
+                                    </ol>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Webhook URL</label>
+                                     <input 
+                                       type="password" 
+                                       value={selectedNode.data.discordWebhookUrl || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, discordWebhookUrl: e.target.value } } : n))}
+                                       placeholder="https://discord.com/api/webhooks/..."
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-indigo-400 focus:outline-none rounded-md font-mono"
+                                     />
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Message</label>
+                                     <textarea 
+                                       value={selectedNode.data.discordMessage || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, discordMessage: e.target.value } } : n))}
+                                       rows={3}
+                                       placeholder="Hello from Aether! Leave empty to use output from previous node."
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-indigo-400 focus:outline-none resize-none font-mono rounded-md"
+                                     />
+                                  </div>
+                                </>
+                              )}
+
+                              {selectedNode.data.model === 'google-sheets' && (
+                                <>
+                                  <div className="p-2.5 bg-green-500/10 border border-green-500/30 rounded-lg">
+                                    <p className="text-[9px] font-bold text-green-400 mb-1">Setup Guide</p>
+                                    <ol className="text-[9px] text-green-400/70 space-y-0.5 list-decimal list-inside">
+                                      <li>console.cloud.google.com - Enable Sheets API</li>
+                                      <li>IAM - Service Accounts - Create - Generate JSON key</li>
+                                      <li>Share spreadsheet with the service account email</li>
+                                      <li>Paste JSON + Sheet ID below</li>
+                                    </ol>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Spreadsheet ID</label>
+                                     <input 
+                                       type="text" 
+                                       value={selectedNode.data.sheetsId || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, sheetsId: e.target.value } } : n))}
+                                       placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-green-400 focus:outline-none rounded-md font-mono"
+                                     />
+                                     <p className="text-[9px] text-gray-500">From URL: /spreadsheets/d/ID/edit</p>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Action</label>
+                                     <select 
+                                       value={selectedNode.data.integrationAction || 'read-sheet'}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationAction: e.target.value } } : n))}
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-green-400 focus:outline-none rounded-md"
+                                     >
+                                       <option value="read-sheet">Read Sheet</option>
+                                       <option value="append-row">Append Row</option>
+                                       <option value="update-cell">Update Cell</option>
+                                     </select>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Range</label>
+                                     <input 
+                                       type="text" 
+                                       value={selectedNode.data.sheetsRange || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, sheetsRange: e.target.value } } : n))}
+                                       placeholder="Sheet1!A1:Z100"
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-green-400 focus:outline-none rounded-md font-mono"
+                                     />
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Service Account JSON</label>
+                                     <textarea 
+                                       value={selectedNode.data.sheetsServiceAccountJson || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, sheetsServiceAccountJson: e.target.value } } : n))}
+                                       rows={4}
+                                       placeholder='{"type":"service_account","project_id":"...","private_key":"-----BEGIN RSA PRIVATE KEY...","client_email":"svc@project.iam.gserviceaccount.com"}'
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-green-400 focus:outline-none resize-none font-mono rounded-md"
+                                     />
+                                     <p className="text-[9px] text-gray-500">Paste full JSON from your downloaded key file</p>
+                                  </div>
+                                </>
+                              )}
+
+                              {selectedNode.data.model === 'github-api' && (
+                                <>
+                                  <div className="p-2.5 bg-gray-500/10 border border-gray-500/30 rounded-lg">
+                                    <p className="text-[9px] font-bold text-gray-300 mb-1">Setup Guide</p>
+                                    <ol className="text-[9px] text-gray-400/70 space-y-0.5 list-decimal list-inside">
+                                      <li>GitHub → Settings → Developer Settings → Personal Access Tokens</li>
+                                      <li>Generate new token (classic) with scopes: repo, read:user</li>
+                                      <li>Copy and paste the token below</li>
+                                    </ol>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
+                                       GitHub Token {selectedNode.data.integrationToken && <span className="text-emerald-400">✓</span>}
+                                     </label>
+                                     <input 
+                                       type="password" 
+                                       value={selectedNode.data.integrationToken || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationToken: e.target.value } } : n))}
+                                       placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-gray-400 focus:outline-none rounded-md font-mono"
+                                     />
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Action</label>
+                                     <select 
+                                       value={selectedNode.data.integrationAction || 'list-repos'}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationAction: e.target.value } } : n))}
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-gray-400 focus:outline-none rounded-md"
+                                     >
+                                       <option value="list-repos">List Repos</option>
+                                       <option value="list-issues">List Issues</option>
+                                       <option value="create-issue">Create Issue</option>
+                                       <option value="get-file">Get File</option>
+                                     </select>
+                                  </div>
+                                  {(selectedNode.data.integrationAction === 'list-issues' || selectedNode.data.integrationAction === 'create-issue' || selectedNode.data.integrationAction === 'get-file') && (
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Repository (owner/repo)</label>
+                                       <input 
+                                         type="text" 
+                                         value={selectedNode.data.githubRepo || ''}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, githubRepo: e.target.value } } : n))}
+                                         placeholder="octocat/hello-world"
+                                         className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-gray-400 focus:outline-none rounded-md font-mono"
+                                       />
+                                    </div>
+                                  )}
+                                  {selectedNode.data.integrationAction === 'get-file' && (
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">File Path</label>
+                                       <input 
+                                         type="text" 
+                                         value={selectedNode.data.githubFilePath || ''}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, githubFilePath: e.target.value } } : n))}
+                                         placeholder="README.md"
+                                         className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-gray-400 focus:outline-none rounded-md font-mono"
+                                       />
+                                    </div>
+                                  )}
+                                </>
+                              )}
+
+                              {selectedNode.data.model === 'firebase' && (
+                                <>
+                                  <div className="p-2.5 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                                    <p className="text-[9px] font-bold text-orange-400 mb-1">Setup Guide</p>
+                                    <ol className="text-[9px] text-orange-400/70 space-y-0.5 list-decimal list-inside">
+                                      <li>Firebase Console → Project Settings → Service Accounts</li>
+                                      <li>Generate New Private Key → Download JSON</li>
+                                      <li>Create Firestore Database (Build → Firestore)</li>
+                                      <li>Paste the Service Account JSON below</li>
+                                    </ol>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Action</label>
+                                     <select 
+                                       value={selectedNode.data.integrationAction || 'read-doc'}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationAction: e.target.value } } : n))}
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md"
+                                     >
+                                       <option value="read-doc">Read Document</option>
+                                       <option value="write-doc">Write Document</option>
+                                       <option value="query-collection">Query Collection</option>
+                                       <option value="delete-doc">Delete Document</option>
+                                     </select>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Document Path</label>
+                                     <input 
+                                       type="text" 
+                                       value={selectedNode.data.firebaseDocPath || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, firebaseDocPath: e.target.value } } : n))}
+                                       placeholder="users/user123"
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-orange-400 focus:outline-none rounded-md font-mono"
+                                     />
+                                     <p className="text-[9px] text-gray-500">e.g., users/user123 or orders/order456</p>
+                                  </div>
+                                  <div className="space-y-1">
+                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Service Account JSON</label>
+                                     <textarea 
+                                       value={selectedNode.data.firebaseServiceAccountJson || ''}
+                                       onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, firebaseServiceAccountJson: e.target.value } } : n))}
+                                       rows={4}
+                                       placeholder='{"type":"service_account","project_id":"my-project","private_key":"-----BEGIN RSA PRIVATE KEY..."}'
+                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-orange-400 focus:outline-none resize-none font-mono rounded-md"
+                                     />
+                                  </div>
+                                </>
+                              )}
+                           </>
+                         ) : selectedNode.type === NodeType.AGENT ? (
                           // --- AGENT CONFIGURATION ---
                           <>
                             <div className="space-y-1">
@@ -3321,19 +4913,51 @@ Return ONLY valid JSON, no explanations or markdown.`
                                     data: { ...n.data, model: newModel } 
                                   } : n));
                                 }}
-                                className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cherry focus:outline-none rounded-md"
+                                className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
                               >
-                                <option value="mimo-v2-flash">📱 Xiaomi Mimo V2 Flash (Text AI)</option>
-                                <option value="tavily-search">🔍 Tavily (Web Search)</option>
-                                <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision/OCR)</option>
+                                <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Text → Text]</option>
+                                <option value="tavily-search">🔍 Tavily (Web Search) [Text → Text+Sources]</option>
+                                <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Text+Image → Text]</option>
                               </select>
                               <p className="text-[9px] text-gray-500 mt-1">
-                                {selectedNode.data.model === 'mimo-v2-flash' && '💬 Best for text generation, summaries, code, etc.'}
+                                {selectedNode.data.model === 'gpt-oss-120b' && '💬 High-performance 120B reasoning model with 3-key rotation.'}
                                 {selectedNode.data.model === 'tavily-search' && '🌐 Real-time web search with sources'}
                                 {selectedNode.data.model === 'groq-vision' && '🖼️ Extract text from images (OCR)'}
                               </p>
                             </div>
                             
+                            {/* 🔑 BYOK - Add Custom API Key Button */}
+                            <div className="space-y-1">
+                              <button
+                                onClick={() => setShowApiKeyModal(true)}
+                                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">🔑</span>
+                                  <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                    {selectedNode.data.customApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                  </span>
+                                </div>
+                                {selectedNode.data.customApiKey ? (
+                                  <span className="text-[9px] text-emerald-400 font-mono">
+                                    {selectedNode.data.apiProvider?.toUpperCase()} ✓
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] text-gray-500">Optional</span>
+                                )}
+                              </button>
+                              {selectedNode.data.customApiKey && (
+                                <div className="flex items-center justify-between px-2">
+                                  <p className="text-[9px] text-emerald-400/70 font-mono">
+                                    {selectedNode.data.customApiKey.substring(0, 8)}...{selectedNode.data.customApiKey.slice(-4)}
+                                  </p>
+                                  <button
+                                    onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, customApiKey: undefined, apiProvider: undefined } } : n))}
+                                    className="text-[9px] text-red-400 hover:text-red-300"
+                                  >Remove</button>
+                                </div>
+                              )}
+                            </div>
                             {/* Image Upload for Vision Model */}
                             {selectedNode.data.model === 'groq-vision' && (
                               <div className="space-y-2 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
@@ -3407,6 +5031,67 @@ Return ONLY valid JSON, no explanations or markdown.`
                                 rows={8}
                                 className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-cherry focus:outline-none resize-none font-mono rounded-md leading-relaxed"
                               />
+                            </div>
+
+                            {/* Test Input/Output */}
+                            <div className="space-y-1 pt-3 border-t border-white/10">
+                              <label className="text-[10px] font-bold text-cyan-400/70 uppercase tracking-wider flex items-center gap-1">
+                                <Send className="w-3 h-3" /> Test Input
+                              </label>
+                              <textarea
+                                value={selectedNode.data.testInput || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, testInput: val } } : n));
+                                }}
+                                rows={3}
+                                placeholder="Type a test message to try this agent..."
+                                className="w-full bg-black/50 border border-cyan-500/20 p-2 text-xs text-cream/80 focus:border-cyan-400 focus:outline-none resize-none font-mono rounded-md"
+                              />
+                              <button
+                                onClick={async () => {
+                                  const testMsg = selectedNode.data.testInput;
+                                  if (!testMsg) { addLog('warning', 'Enter a test input first'); return; }
+                                  addLog('info', `Testing ${selectedNode.data.label}...`, selectedNode.id);
+                                  setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, isExecuting: true, testOutput: '⏳ Thinking...' } } : n));
+                                  try {
+                                    const result = await generateAgentResponse(
+                                      testMsg,
+                                      selectedNode.data.systemPrompt || '',
+                                      selectedNode.data.model,
+                                      selectedNode.data.imageUrl,
+                                      selectedNode.data.customApiKey,
+                                      selectedNode.data.apiProvider,
+                                      selectedNode.data.ioType
+                                    );
+                                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, testOutput: result, isExecuting: false } } : n));
+                                    addLog('success', `Test passed for ${selectedNode.data.label}`, selectedNode.id);
+                                  } catch (err: any) {
+                                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, testOutput: `❌ Error: ${err.message}`, isExecuting: false } } : n));
+                                    addLog('error', `Test failed: ${err.message}`, selectedNode.id);
+                                  }
+                                }}
+                                disabled={!selectedNode.data.testInput || selectedNode.data.isExecuting}
+                                className="w-full py-2 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-bold hover:bg-cyan-500/30 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                              >
+                                <Play className="w-3 h-3" /> {selectedNode.data.isExecuting ? 'Running...' : 'Run Test'}
+                              </button>
+                              {selectedNode.data.testOutput && (
+                                <div className="mt-2">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="text-[10px] font-bold text-emerald-400/70 uppercase tracking-wider">Test Output</label>
+                                    <button
+                                      onClick={() => { navigator.clipboard.writeText(selectedNode.data.testOutput || ''); addLog('info', 'Test output copied'); }}
+                                      className="text-gray-500 hover:text-white p-0.5"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                  <pre className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-[10px] text-emerald-200 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                    {selectedNode.data.testOutput}
+                                  </pre>
+                                </div>
+                              )}
                             </div>
                           </>
                         ) : null}
@@ -3502,8 +5187,8 @@ Return ONLY valid JSON, no explanations or markdown.`
 
       {/* Custom API Key Modal */}
       {showApiKeyModal && selectedNode && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl w-[450px] shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl w-[480px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <div className="flex items-center gap-2">
@@ -3531,12 +5216,13 @@ Return ONLY valid JSON, no explanations or markdown.`
               {/* Provider Selection */}
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">API Provider</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {[
                     { id: 'openrouter', name: 'OpenRouter', icon: '🌐' },
                     { id: 'openai', name: 'OpenAI', icon: '🟢' },
                     { id: 'anthropic', name: 'Anthropic', icon: '🟣' },
                     { id: 'google', name: 'Google', icon: '🔵' },
+                    { id: 'groq', name: 'Groq', icon: '⚡' },
                   ].map((provider) => (
                     <button
                       key={provider.id}
@@ -3565,15 +5251,17 @@ Return ONLY valid JSON, no explanations or markdown.`
                     selectedApiProvider === 'openrouter' ? 'sk-or-v1-...' :
                     selectedApiProvider === 'openai' ? 'sk-...' :
                     selectedApiProvider === 'anthropic' ? 'sk-ant-...' :
+                    selectedApiProvider === 'groq' ? 'gsk_...' :
                     'AI...'
                   }
-                  className="w-full bg-black/50 border border-white/10 p-3 text-sm text-cream font-mono focus:border-cherry focus:outline-none rounded-lg"
+                  className="w-full bg-[#050505] border border-white/10 p-3 text-sm text-cream font-mono focus:border-cherry focus:outline-none rounded-lg"
                 />
                 <p className="text-[9px] text-gray-500">
                   {selectedApiProvider === 'openrouter' && '🌐 Get your key at openrouter.ai/keys'}
                   {selectedApiProvider === 'openai' && '🟢 Get your key at platform.openai.com/api-keys'}
                   {selectedApiProvider === 'anthropic' && '🟣 Get your key at console.anthropic.com'}
                   {selectedApiProvider === 'google' && '🔵 Get your key at aistudio.google.com/apikey'}
+                  {selectedApiProvider === 'groq' && '⚡ Get your key at console.groq.com/keys (FREE tier!)'}
                 </p>
               </div>
               
@@ -3581,47 +5269,143 @@ Return ONLY valid JSON, no explanations or markdown.`
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
                 <select
-                  value={selectedNode.data.model || 'gpt-4o'}
+                  value={selectedNode.data.model || 'gpt-5.5'}
                   onChange={(e) => {
+                    const newModel = e.target.value;
+                    // Auto-determine I/O capabilities based on model
+                    const modelCapabilities: Record<string, { inputs: string[], outputs: string[] }> = {
+                      'gpt-5.5': { inputs: ['text', 'image'], outputs: ['text', 'image'] },
+                      'gpt-5.4': { inputs: ['text', 'image'], outputs: ['text', 'image'] },
+                      'gpt-5.4-mini': { inputs: ['text', 'image'], outputs: ['text'] },
+                      'claude-opus-4.8': { inputs: ['text', 'image'], outputs: ['text'] },
+                      'claude-opus-4.7': { inputs: ['text', 'image'], outputs: ['text'] },
+                      'claude-sonnet-4.6': { inputs: ['text', 'image'], outputs: ['text'] },
+                      'claude-haiku-4.5': { inputs: ['text'], outputs: ['text'] },
+                      'gemini-3.5-pro': { inputs: ['text', 'image', 'audio', 'video'], outputs: ['text', 'image'] },
+                      'gemini-3.5-flash': { inputs: ['text', 'image', 'audio', 'video'], outputs: ['text', 'image'] },
+                      'gemini-2.5-pro': { inputs: ['text', 'image'], outputs: ['text'] },
+                      'gemini-2.5-flash': { inputs: ['text', 'image'], outputs: ['text'] },
+                      'gpt-oss-120b': { inputs: ['text'], outputs: ['text'] },
+                      'gpt-oss-20b': { inputs: ['text'], outputs: ['text'] },
+                      'llama-4-scout': { inputs: ['text', 'image'], outputs: ['text'] },
+                      'qwen3-32b': { inputs: ['text'], outputs: ['text'] },
+                      'deepseek-r1': { inputs: ['text'], outputs: ['text'] },
+                      'deepseek-r1-distill': { inputs: ['text'], outputs: ['text'] },
+                    };
+                    const caps = modelCapabilities[newModel] || { inputs: ['text'], outputs: ['text'] };
                     setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
                       ...n, 
-                      data: { ...n.data, model: e.target.value } 
+                      data: { ...n.data, model: newModel, inputTypes: caps.inputs, outputTypes: caps.outputs } 
                     } : n));
                   }}
-                  className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cherry focus:outline-none rounded-md"
+                  className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
                 >
                   {selectedApiProvider === 'openrouter' && (
                     <>
-                      <option value="gpt-4o">GPT-4o</option>
-                      <option value="gpt-4o-mini">GPT-4o Mini</option>
-                      <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                      <option value="claude-3-opus">Claude 3 Opus</option>
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                      <option value="gpt-5.5">GPT-5.5 [Text+Image → Text]</option>
+                      <option value="gpt-5.4">GPT-5.4 [Text+Image → Text]</option>
+                      <option value="claude-opus-4.8">Claude Opus 4.8 [Text+Image → Text]</option>
+                      <option value="claude-sonnet-4.6">Claude Sonnet 4.6 [Text+Image → Text]</option>
+                      <option value="gemini-3.5-pro">Gemini 3.5 Pro [Multimodal]</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash [Multimodal]</option>
+                      <option value="llama-4-scout">Llama 4 Scout [Text+Image → Text]</option>
+                      <option value="deepseek-r1">DeepSeek R1 [Text → Text, Reasoning]</option>
+                      <option value="qwen3-32b">Qwen3 32B [Text → Text]</option>
                     </>
                   )}
                   {selectedApiProvider === 'openai' && (
                     <>
-                      <option value="custom-openai">GPT-4o</option>
-                      <option value="gpt-4o-mini">GPT-4o Mini</option>
-                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                      <option value="gpt-5.5">GPT-5.5 [Text+Image → Text+Image]</option>
+                      <option value="gpt-5.4">GPT-5.4 [Text+Image → Text+Image]</option>
+                      <option value="gpt-5.4-mini">GPT-5.4 Mini [Text+Image → Text]</option>
                     </>
                   )}
                   {selectedApiProvider === 'anthropic' && (
                     <>
-                      <option value="custom-anthropic">Claude 3.5 Sonnet</option>
-                      <option value="claude-3-opus">Claude 3 Opus</option>
-                      <option value="claude-3-haiku">Claude 3 Haiku</option>
+                      <option value="claude-opus-4.8">Claude Opus 4.8 [Text+Image → Text]</option>
+                      <option value="claude-opus-4.7">Claude Opus 4.7 [Text+Image → Text]</option>
+                      <option value="claude-sonnet-4.6">Claude Sonnet 4.6 [Text+Image → Text]</option>
+                      <option value="claude-haiku-4.5">Claude Haiku 4.5 [Text → Text]</option>
                     </>
                   )}
                   {selectedApiProvider === 'google' && (
                     <>
-                      <option value="custom-google">Gemini 2.0 Flash</option>
-                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                      <option value="gemini-3.5-pro">Gemini 3.5 Pro [Multimodal]</option>
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash [Multimodal]</option>
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro [Text+Image → Text]</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash [Text+Image → Text]</option>
+                    </>
+                  )}
+                  {selectedApiProvider === 'groq' && (
+                    <>
+                      <option value="gpt-oss-120b">⚡ GPT-OSS 120B [Text → Text, Reasoning]</option>
+                      <option value="gpt-oss-20b">⚡ GPT-OSS 20B [Text → Text]</option>
+                      <option value="llama-4-scout">⚡ Llama 4 Scout [Text+Image → Text]</option>
+                      <option value="qwen3-32b">⚡ Qwen3 32B [Text → Text]</option>
+                      <option value="deepseek-r1-distill">⚡ DeepSeek R1 Distill [Text → Text]</option>
                     </>
                   )}
                 </select>
+              </div>
+              
+              {/* I/O Capabilities — Auto-selected based on model (read-only) */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Accepted Inputs</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'text', icon: '📝', label: 'Text' },
+                    { id: 'image', icon: '🖼️', label: 'Image' },
+                    { id: 'audio', icon: '🎤', label: 'Audio' },
+                    { id: 'video', icon: '📹', label: 'Video' },
+                    { id: 'file', icon: '📄', label: 'File' },
+                  ].map((ioType) => {
+                    const modelInputs: string[] = selectedNode.data.inputTypes || ['text'];
+                    const isSupported = modelInputs.includes(ioType.id);
+                    return (
+                      <div
+                        key={ioType.id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-default ${
+                          isSupported
+                            ? 'border-cherry bg-cherry/20 text-cream shadow-[0_0_8px_rgba(217,4,41,0.2)]'
+                            : 'border-white/5 bg-black/20 text-gray-600 opacity-40'
+                        }`}
+                      >
+                        <span>{ioType.icon}</span>
+                        <span>{ioType.label}</span>
+                        {isSupported && <span className="text-[8px] text-cherry">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider mt-2">Output Types</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'text', icon: '📝', label: 'Text' },
+                    { id: 'image', icon: '🎨', label: 'Image' },
+                    { id: 'audio', icon: '🔊', label: 'Audio' },
+                    { id: 'json', icon: '📊', label: 'JSON' },
+                    { id: 'file', icon: '📄', label: 'File' },
+                  ].map((ioType) => {
+                    const modelOutputs: string[] = selectedNode.data.outputTypes || ['text'];
+                    const isSupported = modelOutputs.includes(ioType.id);
+                    return (
+                      <div
+                        key={ioType.id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-default ${
+                          isSupported
+                            ? 'border-cherry bg-cherry/20 text-cream shadow-[0_0_8px_rgba(217,4,41,0.2)]'
+                            : 'border-white/5 bg-black/20 text-gray-600 opacity-40'
+                        }`}
+                      >
+                        <span>{ioType.icon}</span>
+                        <span>{ioType.label}</span>
+                        {isSupported && <span className="text-[8px] text-cherry">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[9px] text-gray-500 mt-1">Capabilities auto-detected from selected model</p>
               </div>
               
               {/* Warning */}
@@ -3656,8 +5440,9 @@ Return ONLY valid JSON, no explanations or markdown.`
                 Clear & Use Free Models
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (tempApiKey.length > 10) {
+                    // Save to node data locally
                     setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
                       ...n, 
                       data: { 
@@ -3666,9 +5451,41 @@ Return ONLY valid JSON, no explanations or markdown.`
                         apiProvider: selectedApiProvider
                       } 
                     } : n));
+                    
+                    // Also persist to backend (encrypted, survives restarts)
+                    try {
+                      const token = user?.token || localStorage.getItem('aether_user_session') && JSON.parse(localStorage.getItem('aether_user_session') || '{}').token;
+                      const res = await fetch(`${systemSettings.apiGateway}/credentials`, {
+                        method: 'POST',
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token || 'dev-token'}`
+                        },
+                        body: JSON.stringify({
+                          name: `${selectedApiProvider}-key-${selectedNode.data.label || selectedNode.id}`,
+                          type: 'API_KEY',
+                          provider: selectedApiProvider,
+                          model: selectedNode.data.model || 'default',
+                          data: { 
+                            apiKey: tempApiKey,
+                            provider: selectedApiProvider,
+                            model: selectedNode.data.model,
+                            nodeId: selectedNode.id
+                          }
+                        })
+                      });
+                      const result = await res.json();
+                      if (result.success) {
+                        addLog('success', `API key saved securely to backend (${selectedApiProvider})`);
+                      } else {
+                        addLog('warning', `API key saved locally but backend save failed: ${result.error}`);
+                      }
+                    } catch (err: any) {
+                      addLog('warning', `API key saved locally. Backend save failed: ${err.message}`);
+                    }
+                    
                     setShowApiKeyModal(false);
                     setTempApiKey('');
-                    addLog('success', `Custom API key configured for ${selectedApiProvider}`);
                   }
                 }}
                 disabled={tempApiKey.length < 10}
