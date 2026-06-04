@@ -1,4 +1,4 @@
-# 🚀 Aether: Next-Gen AI-Driven Workflow Automation Platform
+# Aether: Next-Gen AI-Driven Workflow Automation Platform
 
 Aether is a visual, no-code/low-code workflow automation platform (similar to n8n or Zapier) supercharged with **AI Agents, LLM-based data mapping, and RAG-powered loops**. Build robust workflows with drag-and-drop nodes, schedule cron triggers, register HTTP webhooks, and let AI process, query, and structure data in real-time.
 
