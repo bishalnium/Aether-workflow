@@ -26,6 +26,9 @@ const credentialService = {
 import { groqChat, groqVisionChat } from '../utils/groqClient';
 import { callDynamicLLM } from '../utils/llmClient';
 
+// Dynamic base URL for internal API calls - uses Render URL in production
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || 'http://localhost:8080';
+
 // Inline AI service for node handlers using Groq GPT-OSS-120B with rotation
 const aiService = {
   async chat(options: { prompt: string; systemPrompt?: string; model?: string; temperature?: number }): Promise<string> {
@@ -134,7 +137,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
     // Intercept integration models
     if (model === 'google-sheets') {
       logger.info(`[AGENT-SHEETS] Executing Sheets action: ${node.config.integrationAction}`);
-      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/sheets/execute`, {
+      const resp = await axios.post(`${SELF_URL}/api/v1/integrations/sheets/execute`, {
         action: node.config.integrationAction || 'read-sheet',
         sheetsId: node.config.sheetsId,
         range: node.config.sheetsRange || 'Sheet1!A1:Z100',
@@ -155,7 +158,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
 
     if (model === 'telegram-bot') {
       logger.info(`[AGENT-TELEGRAM] Executing Telegram action: ${node.config.integrationAction}`);
-      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/telegram/execute`, {
+      const resp = await axios.post(`${SELF_URL}/api/v1/integrations/telegram/execute`, {
         token: node.config.integrationToken,
         action: node.config.integrationAction || 'send-message',
         chatId: node.config.chatId || '',
@@ -176,7 +179,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
 
     if (model === 'notion') {
       logger.info(`[AGENT-NOTION] Executing Notion action: ${node.config.integrationAction}`);
-      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/notion/execute`, {
+      const resp = await axios.post(`${SELF_URL}/api/v1/integrations/notion/execute`, {
         token: node.config.integrationToken,
         action: node.config.integrationAction || 'query-database',
         databaseId: node.config.notionDbId || '',
@@ -197,7 +200,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
 
     if (model === 'discord') {
       logger.info(`[AGENT-DISCORD] Executing Discord send message`);
-      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/discord/send`, {
+      const resp = await axios.post(`${SELF_URL}/api/v1/integrations/discord/send`, {
         webhookUrl: node.config.discordWebhookUrl,
         message: node.config.llmAutoMap ? mappedInput : (node.config.discordMessage || userMessage || 'Hello from Aether Workflow!'),
         action: node.config.integrationAction || 'send-message'
@@ -279,7 +282,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
 
     if (model === 'firebase') {
       logger.info(`[AGENT-FIREBASE] Executing Firebase action: ${node.config.integrationAction}`);
-      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/firebase/execute`, {
+      const resp = await axios.post(`${SELF_URL}/api/v1/integrations/firebase/execute`, {
         action: node.config.integrationAction || 'read-doc',
         serviceAccountJson: node.config.firebaseServiceAccountJson,
         documentPath: node.config.firebaseDocPath || '',
@@ -302,7 +305,7 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
     if (model === 'db-read' || model === 'db-write') {
       logger.info(`[AGENT-DATABASE] Executing Database action`);
       const isRead = model === 'db-read';
-      const resp = await axios.post(`http://localhost:8080/api/v1/database/execute`, {
+      const resp = await axios.post(`${SELF_URL}/api/v1/database/execute`, {
         operation: isRead ? 'select' : (node.config.dbOperation || 'insert'),
         table: node.config.tableName || '',
         filter: node.config.dbFilter,
