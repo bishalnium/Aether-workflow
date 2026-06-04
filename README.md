@@ -1,293 +1,173 @@
-# Aether Orchestrate
+# 🚀 Aether: Next-Gen AI-Driven Workflow Automation Platform
 
-A visual workflow automation platform with built-in AI agents. Build powerful automations with drag-and-drop nodes, webhook triggers, and free AI models.
+Aether is a visual, no-code/low-code workflow automation platform (similar to n8n or Zapier) supercharged with **AI Agents, LLM-based data mapping, and RAG-powered loops**. Build robust workflows with drag-and-drop nodes, schedule cron triggers, register HTTP webhooks, and let AI process, query, and structure data in real-time.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)
-
-## 🚀 Features
-
-- **Visual Workflow Builder** - Drag & drop interface for creating automation workflows
-- **AI Agent Nodes** - Integrate AI models (Gemini, Mimo) with custom system prompts
-- **Webhook Triggers** - Automatic webhook endpoints for every workflow
-- **Real-time Execution** - Synchronous webhook responses with AI results
-- **Free AI Models** - Uses OpenRouter with free model options
-- **Node-based Architecture** - Trigger, Agent, Condition, Output nodes
-- **Live Updates** - Real-time node execution status and results
-- **Zero Cost** - Completely free to run and use
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)
+![Database](https://img.shields.io/badge/Database-PostgreSQL%20(Aiven)-orange.svg)
 
 ---
 
-## 📋 Prerequisites
+## ✨ Features
 
-Before you begin, ensure you have the following installed:
-
-- **Node.js** >= 18.0.0 ([Download](https://nodejs.org/))
-- **npm** >= 9.0.0 (comes with Node.js)
-- **Git** ([Download](https://git-scm.com/))
-
----
-
-## 🛠️ Installation
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/yourusername/aether-orchestrate.git
-cd aether-orchestrate
-```
-
-### 2. Install Dependencies
-
-#### Frontend
-```bash
-cd aether-orchestrate
-npm install
-```
-
-#### Backend
-```bash
-cd backend
-npm install
-```
+- **🎮 Interactive Workflow Builder**: Sleek visual canvas built on **React Flow** with frosted glassmorphic UI, responsive grids, and micro-animations.
+- **💾 Cloud Database Persistence**: Fully integrated with **Aiven PostgreSQL** using **Prisma ORM**. All workflows, edges, nodes, executions, credentials, and logs are 100% persisted.
+- **🔐 Secure OAuth Authentication**: Built-in GitHub and Google OAuth login flows.
+- **🔄 Multi-Agent Orchestration & RAG**:
+  - **RAG Search Loop**: Optimizes user prompts, queries DuckDuckGo/Tavily search APIs, and recursively evaluates findings using a validator LLM before routing data downstream.
+  - **Summarization & Classification**: Built-in nodes for parsing, summarizing, and categorizing data.
+- **🗺️ LLM Auto-Mapping**: Automatically parses raw unstructured user inputs and formats them into structured JSON arrays or key-value objects matching Google Sheets or SQL Database schemas.
+- **⏰ Scheduled & Webhook Triggers**:
+  - **Cron Scheduler**: Schedule automations using standard cron notation. Runs are restored from PostgreSQL dynamically on container restart.
+  - **Webhooks**: Sync mode (awaits workflow results and returns custom REST responses from `ACTION_RESPOND` node) or Async mode.
+- **🔌 Comprehensive Integrations**: Stubs and drivers for Email (Resend API), Slack, Telegram, Notion, GitHub API, Firebase, Google Sheets, and PostgreSQL/SQLite databases.
+- **🛡️ Sandbox JavaScript Execution**: Securely run custom JS code scripts directly inside workflows.
 
 ---
 
-## ⚙️ Configuration
+## 🛠️ The Tech Stack
 
-### Required API Keys
+### Frontend
+- **Framework**: React 19 + TypeScript + Vite
+- **Graph Editor**: React Flow (v11)
+- **State Management**: Zustand
+- **Styling**: Vanilla CSS (glassmorphism/dark theme) + Lucide Icons
 
-The platform uses OpenRouter for AI model access. An API key is already configured, but you can use your own:
+### Backend
+- **Runtime**: Node.js + Express + TypeScript + tsx
+- **ORM**: Prisma Client v7
+- **Scheduler**: node-cron
+- **Mailing**: Resend API
+- **AI Routers**: Groq API (GPT-OSS-120B, Llama-4-Scout), Gemini API, OpenRouter
 
-1. Get a free API key from [OpenRouter](https://openrouter.ai/)
-2. Update the key in `backend/src/engine/nodeHandlers.ts`:
-
-```typescript
-const OPENROUTER_API_KEY = 'your-api-key-here';
-```
-
-### Supported AI Models
-
-The following free models are pre-configured:
-- `gemini-2.5-flash` → Google Gemini 2.0 Flash (Free)
-- `gemini-3-pro-preview` → Google Gemini 2.0 Flash (Free)
-- `mimo-v2-flash` → Xiaomi Mimo V2 Flash (Free)
-
----
-
-## 🚦 Running the Application
-
-### Start Backend Server (Terminal 1)
-```bash
-cd backend
-npx tsx src/server.ts
-```
-
-Backend will run on **http://localhost:8080**
-
-### Start Frontend (Terminal 2)
-```bash
-cd aether-orchestrate
-npm run dev
-```
-
-Frontend will run on **http://localhost:3000** (or port shown in terminal)
+### Database
+- **Cloud Database**: Aiven PostgreSQL (never-pauses free tier)
+- **Local Dev Database**: SQLite
 
 ---
 
-## � Project Structure
-
-```
-aether-orchestrate/
-├── aether-orchestrate/          # Frontend application
-│   ├── components/              # React components
-│   │   ├── Auth.tsx            # Authentication UI
-│   │   ├── Builder.tsx         # Workflow builder (main canvas)
-│   │   ├── Deployments.tsx     # Deployment management
-│   │   ├── Landing.tsx         # Landing page
-│   │   ├── Layout.tsx          # App layout wrapper
-│   │   └── Profile.tsx         # User profile
-│   ├── services/               
-│   │   └── geminiService.ts    # AI service integration
-│   ├── App.tsx                 # Main app component
-│   ├── index.tsx               # Entry point
-│   ├── types.ts                # TypeScript type definitions
-│   ├── package.json
-│   └── vite.config.ts          # Vite configuration
-│
-├── backend/                     # Backend server
-│   ├── src/
-│   │   ├── server.ts           # Express server & API routes
-│   │   ├── config/
-│   │   │   └── env.ts          # Environment configuration
-│   │   ├── engine/
-│   │   │   ├── executionEngine.ts   # Workflow execution engine
-│   │   │   └── nodeHandlers.ts      # Node type handlers
-│   │   ├── middleware/
-│   │   │   └── security.ts     # Security middleware
-│   │   ├── services/
-│   │   │   ├── agentRegistry.ts     # Agent service registry
-│   │   │   ├── proxy.ts             # Proxy service
-│   │   │   └── webhookService.ts    # Webhook management
-│   │   ├── types/
-│   │   │   └── workflow.types.ts    # Type definitions
-│   │   └── utils/
-│   │       ├── encryption.ts   # Encryption utilities
-│   │       └── logger.ts       # Logging service
-│   └── package.json
-│
-├── README.md                    # This file
-└── metadata.json               # Project metadata
-```
-
----
-
-## 🎯 Usage Guide
-
-### 1. Creating Your First Workflow
-
-1. **Open the app** at http://localhost:3000
-2. **Add a Trigger node** - Click "Add Node" → Select "Trigger"
-3. **Add an AI Agent node** - Click "Add Node" → Select "Agent"
-4. **Connect the nodes** - Drag from Trigger's output to Agent's input
-5. **Configure the Agent**:
-   - Set a **System Prompt** (e.g., "You are a helpful assistant")
-   - Choose an **AI Model** (e.g., Gemini 2.5 Flash)
-6. **Deploy** - Click the "Deploy" button
-7. **Copy the webhook URL** shown in the deployment dialog
-
-### 2. Testing Your Workflow
-
-Use PowerShell or curl to test the webhook:
-
-```powershell
-# PowerShell
-$result = Invoke-RestMethod -Uri "http://localhost:8080/webhook/wf_YOUR_ID/trigger" -Method POST -ContentType "application/json" -Body '{"question": "What is the capital of India?"}'
-$result.response.answer
-```
-
-```bash
-# Curl (Linux/Mac)
-curl -X POST http://localhost:8080/webhook/wf_YOUR_ID/trigger \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What is the capital of India?"}'
-```
-
-### 3. Understanding the Response
-
-```json
-{
-  "success": true,
-  "executionId": "uuid-here",
-  "response": {
-    "answer": "The capital of India is New Delhi.",
-    "aiResponse": "The capital of India is New Delhi.",
-    "agent": "Your Agent Name",
-    "model": "google/gemini-2.0-flash-exp:free"
-  }
-}
-```
-
----
-
-## 🔌 API Endpoints
-
-### Workflows
-
-- **POST** `/api/v1/workflows` - Create a new workflow
-- **PUT** `/api/v1/workflows/:id` - Update a workflow
-- **GET** `/api/v1/workflows/:id` - Get workflow details
-- **DELETE** `/api/v1/workflows/:id` - Delete a workflow
-
-### Webhooks
-
-- **POST** `/api/v1/webhooks` - Register a webhook
-- **ALL** `/webhook/:workflowId/trigger` - Execute workflow via webhook
-
----
-
-## 🔧 Environment Variables
+## ⚙️ Environment Configuration
 
 Create a `.env` file in the `backend/` directory:
 
 ```env
-# Server Configuration
+# Server
 PORT=8080
 NODE_ENV=development
 
-# OpenRouter API
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
+# Authentication
+JWT_SECRET=your-jwt-secret-key
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+GITHUB_CLIENT_ID=your-github-oauth-client-id
+GITHUB_CLIENT_SECRET=your-github-oauth-client-secret
 
-# Security
-JWT_SECRET=your-jwt-secret-here
+# Aiven PostgreSQL Database
+DATABASE_URL="postgresql://avnadmin:password@aether-db.aivencloud.com:26407/defaultdb?sslmode=require"
+
+# AI Models & Keys
+GROQ_API_KEY_1=your-first-groq-key
+GROQ_API_KEY_2=your-second-groq-key
+GROQ_API_KEY_3=your-third-groq-key
+GEMINI_API_KEY=your-gemini-key
+OPENROUTER_API_KEY=your-openrouter-key
+
+# Search & Integrations
+TAVILY_API_KEY=your-tavily-search-key
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM=onboarding@resend.dev
 ```
 
 ---
 
-## 🎨 Available Node Types
+## 🚀 Installation & Local Startup
 
-### Trigger Nodes
-- **TRIGGER** - Webhook trigger for external events
-- **TRIGGER_WEBHOOK** - HTTP webhook listener
-
-### Action Nodes
-- **AGENT** - AI agent with configurable model & system prompt
-- **ACTION_AI_CHAT** - AI chat completion
-- **ACTION_AI_SUMMARIZE** - AI text summarization
-- **ACTION_HTTP** - HTTP request
-
-### Output Nodes
-- **OUTPUT** - Display results
-- **ACTION_RESPOND** - Custom webhook response
-
----
-
-## 🐛 Troubleshooting
-
-### Backend Won't Start
-
-**Error: `Module not found`**
+### 1. Clone the Repository
 ```bash
+git clone https://github.com/bishalnium/Aether-workflow.git
+cd Aether-workflow
+```
+
+### 2. Install Dependencies & Build Prisma
+```bash
+# Install frontend dependencies
+npm install
+
+# Install backend dependencies
 cd backend
 npm install
 ```
 
-**Error: `Port 8080 already in use`**
+### 3. Sync Aiven Cloud Database
+Ensure your `.env` contains the Aiven connection string. Push the database schema:
 ```bash
-# Windows
-netstat -ano | findstr :8080
-taskkill /PID <PID> /F
+npx prisma db push
+npx prisma generate
 ```
 
-### Webhook Returns 404
+### 4. Start the Application
 
-**Solution:** Re-deploy the workflow from the frontend. Webhooks are stored in-memory and reset when the backend restarts.
+#### Start Backend (Terminal 1)
+```bash
+cd backend
+npm run dev
+```
+*Backend runs on: **http://localhost:8080***
 
-### AI Agent Not Responding
-
-1. Check the OpenRouter API key is valid
-2. Check backend console for error logs
-3. Verify the model name is correctly configured
+#### Start Frontend (Terminal 2)
+```bash
+# Back in Aether-workflow/
+npm run dev
+```
+*Frontend runs on: **http://localhost:3000***
 
 ---
 
-## 🗺️ Roadmap
+## 🎯 Usage & Testing Webhooks
 
-- [ ] Database persistence
-- [ ] User authentication
-- [ ] Scheduled workflows (cron)
-- [ ] More AI models
-- [ ] Email/Slack integrations
-- [ ] Workflow templates
-- [ ] Analytics dashboard
+We've provided scripts to test workflow deployment and webhook trigger persistence:
+
+### 1. Run Webhook Integration Test (Deploy + Trigger)
+This creates a workflow with a **Webhook Trigger** ➡️ **DuckDuckGo Search Agent** ➡️ **Resend Email Sender**, and pushes a payload:
+```bash
+node scratch/test_jis_university.js
+```
+
+### 2. Run Custom Webhook Test
+Test any webhook with custom queries and recipient emails:
+```bash
+node scratch/test_custom_webhook.js <webhook_url> "<search_topic>" <recipient_email>
+```
+
+---
+
+## 🎨 Node Catalog
+
+### Triggers
+- **TRIGGER_WEBHOOK**: Triggers execution on incoming HTTP payloads.
+- **TRIGGER_SCHEDULE**: Runs at scheduled cron intervals.
+- **TRIGGER_MANUAL**: Start manually from the editor.
+
+### AI Agents
+- **AGENT (gpt-oss-120b)**: Multi-turn LLM agent.
+- **AGENT (ddg-search)**: RAG search validator agent.
+- **AGENT (tavily-search)**: Web-scraping query agent.
+- **AGENT (groq-vision)**: Visual OCR text extraction agent.
+
+### Action Nodes
+- **ACTION_HTTP**: Dispatches custom REST requests.
+- **ACTION_EMAIL**: Sends emails via Resend.
+- **ACTION_CODE**: Executes JavaScript scripts.
+- **ACTION_RESPOND**: Sends custom JSON back to webhooks.
+
+### Controls & Integrations
+- **Google Sheets**: Reads/appends spreadsheet cells.
+- **SQL Database**: Read/write sqlite & postgresql records.
+- **Slack / Telegram / Discord / Notion / GitHub**: Dispatches bot alerts and queries APIs.
+- **Control Flow**: Switch, Filter, Merge, Split, Loop, and Wait delay handlers.
 
 ---
 
 ## 📄 License
-
-MIT License - 2025
-
----
-
-**Built with ❤️ for the future of AI automation**
+Licensed under the [MIT License](LICENSE).
