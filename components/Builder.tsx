@@ -16,6 +16,9 @@ if (pdfjs.GlobalWorkerOptions) {
     pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 }
 
+const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+const API_BASE_URL = isProduction ? 'https://aether-workflow.onrender.com' : 'http://localhost:8080';
+
 // --- CONSTANTS & TEMPLATES ---
 
 const NODE_WIDTH = 280;
@@ -1289,8 +1292,8 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
   
   // System Settings State (persisted via storageService)
   const [systemSettings, setSystemSettings] = useState({
-    apiGateway: 'http://localhost:8080/api/v1',
-    environment: 'development' as 'production' | 'staging' | 'development',
+    apiGateway: isProduction ? 'https://aether-workflow.onrender.com/api/v1' : 'http://localhost:8080/api/v1',
+    environment: (isProduction ? 'production' : 'development') as 'production' | 'staging' | 'development',
     defaultModel: 'gpt-oss-120b',
   });
 
@@ -1408,7 +1411,7 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
         
         // Find webhook trigger nodes and show their URLs
         const triggerNode = nodes.find(n => n.type === NodeType.TRIGGER || n.data.model === 'webhook-trigger');
-        const webhookUrl = `http://localhost:8080/webhook/${createdId}/trigger`;
+        const webhookUrl = `${API_BASE_URL}/webhook/${createdId}/trigger`;
         
         addLog('success', `✅ Workflow deployed successfully!`);
         addLog('info', `📌 Workflow ID: ${createdId}`);
@@ -2392,7 +2395,7 @@ Return ONLY valid JSON, no explanations or markdown.`,
                             addLog('info', `✨ Formatting email body with AI...`, currentNode.id);
                             const systemPrompt = `You are an email formatting assistant. Your job is to take raw inputs (which may be JSON, markdown, or search results) and format them into a highly professional, clean, and properly formatted plain text email message.
 Do not include JSON characters, brackets, or code blocks in your final output unless explicitly requested. Output only the clean body of the email.`;
-                            const resp = await fetch('http://localhost:8080/api/v1/ai/chat', {
+                            const resp = await fetch(`${API_BASE_URL}/api/v1/ai/chat`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                                 body: JSON.stringify({
@@ -2444,7 +2447,7 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                         
                         // Fallback: Try backend Resend API (only works for verified emails)
                         try {
-                            const response = await fetch('http://localhost:8080/api/v1/integrations/email/send', {
+                            const response = await fetch(`${API_BASE_URL}/api/v1/integrations/email/send`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -2676,7 +2679,7 @@ Example: {"name": "John Doe", "email": "john@email.com", "age": 30}
 Use descriptive, lowercase, snake_case column names.
 IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                                     
-                                    const resp = await fetch('http://localhost:8080/api/v1/ai/chat', {
+                                    const resp = await fetch(`${API_BASE_URL}/api/v1/ai/chat`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                                         body: JSON.stringify({
@@ -2705,7 +2708,7 @@ IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                             }
                         }
                         
-                        const resp = await fetch('http://localhost:8080/api/v1/database/execute', {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/database/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
@@ -2734,7 +2737,7 @@ IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     try {
                         const query = currentNode.data.searchQuery || inputContext || 'hello';
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/ddg/search`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/ddg/search`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({ query })
@@ -2771,7 +2774,7 @@ IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                     try {
                         const feedUrl = currentNode.data.feedUrl || inputContext || '';
                         const maxItems = currentNode.data.maxItems || 10;
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/rss/fetch`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/rss/fetch`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({ feedUrl, maxItems })
@@ -2793,7 +2796,7 @@ IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                     addLog('info', `GitHub: ${currentNode.data.integrationAction || 'list-repos'}...`, currentNode.id);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     try {
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/github/execute`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/github/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
@@ -2823,7 +2826,7 @@ IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                     addLog('info', `Telegram: ${currentNode.data.integrationAction || 'send-message'}...`, currentNode.id);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     try {
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/telegram/execute`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/telegram/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
@@ -2851,7 +2854,7 @@ IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                     addLog('info', `Notion: ${currentNode.data.integrationAction || 'query-database'}...`, currentNode.id);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     try {
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/notion/execute`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/notion/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
@@ -2883,7 +2886,7 @@ IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
                         const webhookUrl = currentNode.data.discordWebhookUrl;
                         if (!webhookUrl) throw new Error('Discord Webhook URL is not configured. Click this node and add your webhook URL.');
                         const message = currentNode.data.discordMessage || inputContext || 'Hello from Aether Workflow!';
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/discord/send`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/discord/send`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({ webhookUrl, message, action: currentNode.data.integrationAction || 'send-message' })
@@ -2927,7 +2930,7 @@ Example: [["Name","Email","Phone"],["John Doe","john@email.com","555-1234"]]
 If the input contains multiple records, output multiple data rows after the header row.
 IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                                     
-                                    const resp = await fetch('http://localhost:8080/api/v1/ai/chat', {
+                                    const resp = await fetch(`${API_BASE_URL}/api/v1/ai/chat`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                                         body: JSON.stringify({
@@ -2957,7 +2960,7 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                             }
                         }
                         
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/sheets/execute`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/sheets/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
@@ -3037,7 +3040,7 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                     addLog('info', `Firebase: ${currentNode.data.integrationAction || 'read-doc'}...`, currentNode.id);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     try {
-                        const resp = await fetch(`http://localhost:8080/api/v1/integrations/firebase/execute`, {
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/integrations/firebase/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
@@ -3399,7 +3402,7 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                 <div className="text-xs text-emerald-400 font-bold mb-1">Webhook URL (after deploy)</div>
                 <div className="text-xs text-gray-400 font-mono break-all">
-                  http://localhost:8080/webhook/{deployedWorkflowId || 'wf_' + Date.now()}/trigger
+                  {`${API_BASE_URL}/webhook/${deployedWorkflowId || 'wf_' + Date.now()}/trigger`}
                 </div>
               </div>
             </div>
@@ -4071,11 +4074,11 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                                 <span className="font-bold">DEPLOYED</span>
                             </div>
                             <div className="mt-1 text-[9px] text-cream/60 font-mono break-all">
-                                {`http://localhost:8080/webhook/${deployedWorkflowId}/trigger`}
+                                {`${API_BASE_URL}/webhook/${deployedWorkflowId}/trigger`}
                             </div>
                             <button
                                 onClick={() => {
-                                    navigator.clipboard.writeText(`http://localhost:8080/webhook/${deployedWorkflowId}/trigger`);
+                                    navigator.clipboard.writeText(`${API_BASE_URL}/webhook/${deployedWorkflowId}/trigger`);
                                     addLog('info', 'Webhook URL copied to clipboard!');
                                 }}
                                 className="mt-1 text-[9px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
@@ -4314,21 +4317,16 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                                      </div>
                                        <button 
                                          onClick={() => setShowHelpFor('discord')}
-                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
-                                       >
-                                         ❓ Get Token / Help
-                                       </button>
-                                     </div>
                                 <div className="flex items-center gap-2">
                                    <input 
                                      type="text" 
                                      readOnly
-                                     value={`http://localhost:8080/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`}
+                                     value={`${API_BASE_URL}/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`}
                                      className="w-full bg-black/70 border border-white/10 p-2 text-xs text-gray-400 rounded-md font-mono"
                                    />
                                    <button 
                                      onClick={() => {
-                                       navigator.clipboard.writeText(`http://localhost:8080/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`);
+                                       navigator.clipboard.writeText(`${API_BASE_URL}/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`);
                                        addLog('info', 'Webhook URL copied to clipboard');
                                      }}
                                      className="p-2 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
