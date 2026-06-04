@@ -156,8 +156,8 @@ class WorkflowService {
           }))
         },
         edges: {
-          create: (data.edges || []).map(e => ({
-            edgeId: e.id,
+          create: (data.edges || []).map((e, idx) => ({
+            edgeId: e.id || `edge_${id}_${idx}_${Date.now()}`,
             sourceNodeId: e.source,
             targetNodeId: e.target,
             condition: e.condition ? (e.condition as any) : undefined
@@ -248,8 +248,8 @@ class WorkflowService {
             }))
           } : undefined,
           edges: data.edges ? {
-            create: data.edges.map(e => ({
-              edgeId: e.id,
+            create: data.edges.map((e, idx) => ({
+              edgeId: e.id || `edge_${workflowId}_${idx}_${Date.now()}`,
               sourceNodeId: e.source,
               targetNodeId: e.target,
               condition: e.condition ? (e.condition as any) : undefined
