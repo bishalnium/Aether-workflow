@@ -1110,15 +1110,137 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
 };
 const getModelDisplayName = (model: string): string => MODEL_DISPLAY_NAMES[model] || model;
 
-const getEdgePath = (source: Position, target: Position) => {
-  const deltaX = target.x - source.x;
-  const controlPointX = deltaX * 0.5;
-  return `M${source.x},${source.y} C${source.x + controlPointX},${source.y} ${target.x - controlPointX},${target.y} ${target.x},${target.y}`;
+const getEdgePath = (
+  source: Position, 
+  target: Position, 
+  sourceSide: 'left' | 'right' | 'top' | 'bottom' = 'right', 
+  targetSide: 'left' | 'right' | 'top' | 'bottom' = 'left'
+) => {
+  const isSourceHorizontal = sourceSide === 'left' || sourceSide === 'right';
+  const isTargetHorizontal = targetSide === 'left' || targetSide === 'right';
+  
+  if (isSourceHorizontal && isTargetHorizontal) {
+    const deltaX = target.x - source.x;
+    const controlPointX = Math.max(30, Math.abs(deltaX) * 0.5);
+    const sourceCPX = sourceSide === 'right' ? source.x + controlPointX : source.x - controlPointX;
+    const targetCPX = targetSide === 'left' ? target.x - controlPointX : target.x + controlPointX;
+    return `M${source.x},${source.y} C${sourceCPX},${source.y} ${targetCPX},${target.y} ${target.x},${target.y}`;
+  } else {
+    const deltaY = target.y - source.y;
+    const controlPointY = Math.max(30, Math.abs(deltaY) * 0.5);
+    const sourceCPY = sourceSide === 'bottom' ? source.y + controlPointY : source.y - controlPointY;
+    const targetCPY = targetSide === 'top' ? target.y - controlPointY : target.y + controlPointY;
+    return `M${source.x},${source.y} C${source.x},${sourceCPY} ${target.x},${targetCPY} ${target.x},${target.y}`;
+  }
+};
+
+
+// --- HELP MODAL CONTENT & COMPONENT ---
+interface IntegrationHelpModalProps {
+  type: string;
+  onClose: () => void;
+}
+
+const HELP_CONTENT: Record<string, { title: string; steps: string[] }> = {
+  'telegram-bot': {
+    title: 'Telegram Bot Token Setup Guide',
+    steps: [
+      'Open Telegram and search for @BotFather.',
+      'Send /newbot and follow the instructions to set your bot name and username.',
+      'Copy the HTTP API token provided by BotFather.',
+      'Paste the token into the Bot Token field in the configuration panel.'
+    ]
+  },
+  'notion': {
+    title: 'Notion Integration Guide',
+    steps: [
+      'Go to Notion My Integrations page (notion.so/my-integrations).',
+      'Click "+ New integration", select workspace, name it, and save.',
+      'Go to the Secrets tab and copy the "Internal Integration Secret".',
+      'Open the Notion page/database you want to connect.',
+      'Click the "..." (top right) -> "Add connections" -> search and select your integration.'
+    ]
+  },
+  'discord': {
+    title: 'Discord Webhook Guide',
+    steps: [
+      'Open Discord server settings.',
+      'Go to Integrations -> Webhooks.',
+      'Click "Create Webhook" and select a channel.',
+      'Click "Copy Webhook URL" and paste it in the webhook input.'
+    ]
+  },
+  'google-sheets': {
+    title: 'Google Sheets & Service Account Setup Guide',
+    steps: [
+      'Go to Google Cloud Console (console.cloud.google.com).',
+      'Enable Google Sheets and Google Drive APIs in your project.',
+      'Create a Service Account under Credentials -> Create Credentials.',
+      'Go to Keys tab on your Service Account page -> Add Key -> Create new key (JSON).',
+      'Paste the generated JSON key contents into the Google Service Account Credentials field.',
+      'Copy the service account email and share your Spreadsheet with it as an Editor.'
+    ]
+  },
+  'github-api': {
+    title: 'GitHub Access Token Guide',
+    steps: [
+      'Go to GitHub -> Settings -> Developer settings.',
+      'Select Personal access tokens -> Tokens (classic).',
+      'Click "Generate new token" (classic).',
+      'Select the "repo" scope (and "workflow" if managing actions).',
+      'Generate, copy the token, and paste it in the Token field.'
+    ]
+  },
+  'firebase': {
+    title: 'Firebase Admin Credentials Guide',
+    steps: [
+      'Go to Firebase Console (console.firebase.google.com).',
+      'Select your project -> Project Settings -> Service accounts.',
+      'Click "Generate new private key" under Firebase Admin SDK.',
+      'Open the downloaded JSON file, copy its contents, and paste into the Credentials field.'
+    ]
+  }
+};
+
+const IntegrationHelpModal: React.FC<IntegrationHelpModalProps> = ({ type, onClose }) => {
+  const content = HELP_CONTENT[type];
+  if (!content) return null;
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[99999] p-4">
+      <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-white/10 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+        <h3 className="text-base font-bold text-cream mb-4">{content.title}</h3>
+        <div className="space-y-3">
+          {content.steps.map((step, idx) => (
+            <div key={idx} className="flex gap-3 text-xs leading-relaxed text-cream/80">
+              <span className="w-5 h-5 rounded-full bg-cherry/20 text-cherry flex items-center justify-center font-bold text-[10px] shrink-0">{idx + 1}</span>
+              <span>{step}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-cherry text-cream font-bold text-xs hover:bg-cherry-hover transition-colors"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, edges, setEdges, user }) => {
   // --- STATE ---
   // Nodes and Edges are now received via props for persistence
+  const [connectingSide, setConnectingSide] = useState<'left' | 'right' | 'top' | 'bottom'>('right');
+  const [showHelpFor, setShowHelpFor] = useState<string | null>(null);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -1163,6 +1285,7 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [tempApiKey, setTempApiKey] = useState('');
   const [selectedApiProvider, setSelectedApiProvider] = useState<'openrouter' | 'openai' | 'anthropic' | 'google' | 'groq'>('openrouter');
+  const [apiKeyModalContext, setApiKeyModalContext] = useState<'agent' | 'llmAutoMap' | 'synthesis'>('agent');
   
   // System Settings State (persisted via storageService)
   const [systemSettings, setSystemSettings] = useState({
@@ -1561,29 +1684,58 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
       const availableAgents = getAvailableAgentsDescription();
       
       const text = await generateAgentResponse(
-        `You are an expert workflow automation architect. Based on the user's description, create a complete workflow using EXISTING agents when possible.
+        `You are an expert workflow automation architect for the Aether platform. Based on the user's description, create a complete workflow using EXISTING agents and tools.
 
-=== AVAILABLE AGENTS IN THE SYSTEM ===
+=== AVAILABLE AI AGENTS (for text/code processing) ===
 ${availableAgents}
 
-=== SPECIAL AGENTS (ALWAYS AVAILABLE) ===
-- "User Input" (Category: Human Interaction): Allows user to enter text OR upload images. Use this as the FIRST node when the workflow needs user input. Set "testInput" with a realistic example value. Images are automatically converted to base64 and passed to vision models.
-- "Email Sender" (Category: Integrations, model: "mock-sender"): Sends emails via EmailJS to ANY recipient. Requires recipient, subject in config.
-- "Webhook Trigger" (Category: Webhooks & API, model: "webhook-trigger"): HTTP webhook endpoint to trigger the workflow externally.
-- "Web Scraper" (Category: Internet Scraper, model: "tavily-search"): Real-time web search using Tavily API - for finding current information.
-- "Image Text Extractor" (Category: Vision, model: "groq-vision"): Extract text from images using Llama 4 Scout vision model. Connect AFTER User Input to process uploaded images.
+=== BUILT-IN TOOLS & INTEGRATIONS (use these EXACT model IDs) ===
+
+**Human Interaction:**
+- "User Input" (category: "Human Interaction", model: "user-input", type: "TRIGGER"): Starting point for workflows. User enters text or uploads images. Set "testInput" with a realistic example.
+
+**Web & Search:**
+- "DuckDuckGo Search" (category: "Web & Search", model: "ddg-search"): FREE web search, no API key needed. Config: searchQuery (optional, uses input from previous node if empty). Returns search results.
+- "RSS Feed Reader" (category: "Web & Search", model: "rss-reader"): FREE RSS/Atom feed parser. Config: feedUrl (e.g. "https://feeds.bbci.co.uk/news/rss.xml"), maxItems (default 10). Returns articles.
+- "Web Scraper" (category: "Internet Scraper", model: "tavily-search"): Real-time web search via Tavily API.
+
+**Integrations (require user tokens/keys configured in the UI):**
+- "Google Sheets" (category: "Integrations", model: "google-sheets"): Read/write spreadsheets. Config: sheetsId, sheetsRange, integrationAction ("read-sheet"|"append-row"|"update-cell"), sheetsServiceAccountJson. For append-row, rowData should be a JSON array like [["Name","Email"],["John","john@email.com"]].
+- "Discord" (category: "Integrations", model: "discord-webhook"): Send messages to Discord via webhook. Config: integrationToken (webhook URL), integrationAction ("send-message"|"send-embed").
+- "Telegram Bot" (category: "Integrations", model: "telegram-bot"): Send/receive Telegram messages. Config: integrationToken (bot token), integrationAction ("send-message"|"get-updates"), telegramChatId.
+- "Firebase" (category: "Integrations", model: "firebase"): Read/write Firestore documents. Config: firebaseServiceAccountJson, integrationAction ("read-doc"|"write-doc"|"query-collection"), firebaseDocumentPath, firebaseCollectionPath.
+- "GitHub" (category: "Integrations", model: "github-api"): GitHub API operations. Config: integrationToken (PAT), integrationAction ("list-repos"|"list-issues"|"create-issue"|"get-file"), githubRepo ("owner/repo").
+- "Notion" (category: "Integrations", model: "notion-api"): Notion database operations. Config: integrationToken, integrationAction ("query-database"|"create-page"|"search"), notionDatabaseId.
+- "Email Sender" (category: "Integrations", model: "mock-sender"): Send emails via EmailJS. Config: recipient, subject.
+
+**Vision:**
+- "Image Text Extractor" (category: "Vision", model: "groq-vision"): Extract text from images using Llama 4 Scout. Connect AFTER User Input.
+
+**Webhooks & API:**
+- "Webhook Trigger" (category: "Webhooks & API", model: "webhook-trigger", type: "TRIGGER"): HTTP endpoint to trigger workflow externally.
+- "HTTP Response" (category: "Webhooks & API", model: "http-response"): Send custom HTTP responses back.
+
+**Data Utilities:**
+- "HTTP Request" (category: "Data", model: "http-request"): Make HTTP requests to external APIs. Config: httpUrl, httpMethod, httpHeaders, httpBody.
+- "Transform" (category: "Data", model: "transform"): Run JavaScript code to transform data. Config: transformCode (JS code, input available as \`input\`).
+- "Set" (category: "Data", model: "set"): Set static key-value pairs. Config: setValues (JSON string).
+- "Split" (category: "Data", model: "split"): Split an array field into individual items. Config: splitField.
+- "Merge" (category: "Data", model: "merge"): Merge multiple inputs. Config: mergeMode ("combine"|"waitAll"|"keepMatching").
+
+**Database:**
+- "Read Database" (category: "Database", model: "db-read"): Read from SQLite/PostgreSQL. Config: dbType, tableName, connectionString, dbFilter (JSON), dbLimit.
+- "Write Database" (category: "Database", model: "db-write"): Write to SQLite/PostgreSQL. Config: dbType, tableName, connectionString, dbOperation ("insert"|"update"|"upsert").
 
 === USER REQUEST ===
 "${aiWorkflowPrompt}"
 
 === YOUR TASK ===
-1. FIRST: Analyze which existing agents from the list above can fulfill the user's request
-2. PRIORITIZE using existing agents by their EXACT names (e.g., "Code Reviewer", "Email Sender", "Summarizer", "Web Scraper")
-3. ONLY create new custom agents if NO existing agent fits the needed functionality
-4. For workflows that need user input, START with a "User Input" node (Human Interaction category)
-5. Include realistic "testInput" values for User Input nodes so the workflow can be tested immediately
-6. For web search tasks, use "Web Scraper" (model: "tavily-search")
-7. For image text extraction, use "Image Text Extractor" (model: "groq-vision")
+1. Analyze which EXISTING agents and built-in tools from above can fulfill the request
+2. Use EXACT model IDs from the lists above (e.g., "ddg-search", "google-sheets", "rss-reader")
+3. ONLY create custom agents when no existing tool fits
+4. For web search: use "ddg-search" (free) or "tavily-search"
+5. For data formatting between nodes: use "Transform" with JS code
+6. For multi-step data: connect nodes logically in a pipeline
 
 Generate a JSON response with this EXACT structure (no markdown, just pure JSON):
 {
@@ -1604,11 +1756,11 @@ Generate a JSON response with this EXACT structure (no markdown, just pure JSON)
     },
     {
       "id": "unique_id_2",
-      "name": "Agent Name",
-      "category": "Development|Machine Learning|Internet Scraper|Marketing|Sales|Integrations|Vision",
+      "name": "Exact Tool/Agent Name",
+      "category": "Exact Category from above",
       "type": "AGENT",
-      "model": "gpt-oss-120b|tavily-search|groq-vision|mock-sender|webhook-trigger",
-      "systemPrompt": "The agent's system prompt - use existing agent prompts or write detailed custom ones",
+      "model": "exact-model-id-from-above",
+      "systemPrompt": "Detailed prompt for AI agents OR empty for integration tools",
       "position": { "x": 450, "y": 200 },
       "inputEndpoints": 1,
       "outputEndpoints": 1,
@@ -1621,19 +1773,18 @@ Generate a JSON response with this EXACT structure (no markdown, just pure JSON)
 }
 
 IMPORTANT RULES:
-1. ALWAYS start with a "User Input" node (type: "TRIGGER", category: "Human Interaction") when the user needs to provide input (text OR images)
-2. Include "testInput" field with realistic example data for User Input nodes (this is critical for testing!)
-3. Create 3-7 agents depending on complexity
-4. When using EXISTING agents: use their EXACT name and include their system prompt
-5. DEFAULT MODEL is "gpt-oss-120b" for all text-to-text AI agents
-6. For web search/research: use model "tavily-search"
-7. For image/vision/OCR tasks: use model "groq-vision" - connect AFTER User Input for image uploads
-8. For Email Sender: use model "mock-sender", category "Integrations", include "recipient" and "subject" fields
+1. START with "User Input" (type: "TRIGGER") when user provides input
+2. Include "testInput" with realistic example data for User Input nodes
+3. Use EXACT model IDs: "ddg-search" NOT "duckduckgo", "google-sheets" NOT "sheets"
+4. DEFAULT MODEL is "gpt-oss-120b" for custom AI agents only
+5. For web search: use "ddg-search" (free, no API key) or "tavily-search"
+6. For image tasks: "groq-vision" after User Input
+7. For email: model "mock-sender", category "Integrations", add "recipient" and "subject" fields
+8. For integrations (Sheets, Discord, Telegram, Firebase): set "integrationAction" field
 9. Position agents left-to-right with x increments of 350
-10. Connect agents logically based on data flow
-11. For workflows with image input: User Input → Image Text Extractor (groq-vision) → other agents
-12. Return ONLY valid JSON, no explanations or markdown`,
-        'You are an expert workflow automation architect.'
+10. Create 2-7 agents depending on complexity
+11. Return ONLY valid JSON, no explanations or markdown`,
+        'You are an expert workflow automation architect for the Aether platform.'
       );
       console.log('AI Workflow Response:', text);
       
@@ -1680,6 +1831,38 @@ IMPORTANT RULES:
             // Store email-specific fields
             recipient: agent.recipient,
             subject: agent.subject,
+            // Integration config fields (AI can pre-configure these)
+            integrationAction: agent.integrationAction,
+            integrationToken: agent.integrationToken,
+            // Google Sheets
+            sheetsId: agent.sheetsId,
+            sheetsRange: agent.sheetsRange,
+            sheetsRowData: agent.sheetsRowData,
+            // Firebase
+            firebaseDocumentPath: agent.firebaseDocumentPath,
+            firebaseCollectionPath: agent.firebaseCollectionPath,
+            // Telegram
+            telegramChatId: agent.telegramChatId,
+            // GitHub
+            githubRepo: agent.githubRepo,
+            // Notion
+            notionDatabaseId: agent.notionDatabaseId,
+            // Database
+            dbType: agent.dbType,
+            tableName: agent.tableName,
+            dbOperation: agent.dbOperation,
+            // Web & Search
+            searchQuery: agent.searchQuery,
+            feedUrl: agent.feedUrl,
+            maxItems: agent.maxItems,
+            // Data utils
+            transformCode: agent.transformCode,
+            setValues: agent.setValues,
+            splitField: agent.splitField,
+            mergeMode: agent.mergeMode,
+            // HTTP
+            httpUrl: agent.httpUrl,
+            httpMethod: agent.httpMethod,
           }
         };
       });
@@ -1944,13 +2127,14 @@ Return ONLY valid JSON, no explanations or markdown.`,
   // Track which endpoint we're connecting from
   const [connectingEndpoint, setConnectingEndpoint] = useState<number>(0);
 
-  const handleMouseDownHandle = (e: React.MouseEvent, nodeId: string, endpointIdx: number = 0) => {
+  const handleMouseDownHandle = (e: React.MouseEvent, nodeId: string, endpointIdx: number = 0, side: 'left' | 'right' | 'top' | 'bottom' = 'right') => {
     e.stopPropagation();
     e.preventDefault();
     if (!canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
     setConnectingNodeId(nodeId);
     setConnectingEndpoint(endpointIdx);
+    setConnectingSide(side);
     // Initial mouse pos in World Space
     setMousePos({ 
       x: (e.clientX - canvasRect.left) / zoom - pan.x, 
@@ -1958,17 +2142,26 @@ Return ONLY valid JSON, no explanations or markdown.`,
     });
   };
 
-  const handleMouseUpHandle = (e: React.MouseEvent, targetNodeId: string, targetEndpointIdx: number = 0) => {
+  const handleMouseUpHandle = (e: React.MouseEvent, targetNodeId: string, targetEndpointIdx: number = 0, side: 'left' | 'right' | 'top' | 'bottom' = 'left') => {
       e.stopPropagation();
       if (connectingNodeId && connectingNodeId !== targetNodeId) {
-          const exists = edges.find(e => e.source === connectingNodeId && e.target === targetNodeId && e.sourceEndpoint === connectingEndpoint && e.targetEndpoint === targetEndpointIdx);
+          const exists = edges.find(e => 
+            e.source === connectingNodeId && 
+            e.target === targetNodeId && 
+            e.sourceEndpoint === connectingEndpoint && 
+            e.targetEndpoint === targetEndpointIdx &&
+            (e.sourceSide || 'right') === connectingSide &&
+            (e.targetSide || 'left') === side
+          );
           if (!exists) {
             const newEdge: WorkflowEdge = {
-                id: `e-${connectingNodeId}-${connectingEndpoint}-${targetNodeId}-${targetEndpointIdx}`,
+                id: `e-${connectingNodeId}-${connectingSide}-${connectingEndpoint}-\text{${targetNodeId}}-${side}-${targetEndpointIdx}`.replace(/\\/g, ''),
                 source: connectingNodeId,
                 target: targetNodeId,
                 sourceEndpoint: connectingEndpoint,
                 targetEndpoint: targetEndpointIdx,
+                sourceSide: connectingSide,
+                targetSide: side,
             };
             setEdges([...edges, newEdge]);
             addLog('success', `Connected nodes`);
@@ -2108,10 +2301,16 @@ Return ONLY valid JSON, no explanations or markdown.`,
                  if (inputs) inputContext = inputs;
             }
 
-            // Check if this is a Human Interaction (User Input) node - can be AGENT or TRIGGER type
-            const isUserInputNode = currentNode.data.category === 'Human Interaction' || 
-                                    currentNode.data.label === 'User Input' ||
-                                    currentNode.data.model === 'user-input';
+            const maxNodeAttempts = 3;
+            let lastNodeError: any = null;
+            let nodeSuccess = false;
+
+            for (let attempt = 1; attempt <= maxNodeAttempts; attempt++) {
+                try {
+                    // Check if this is a Human Interaction (User Input) node - can be AGENT or TRIGGER type
+                    const isUserInputNode = currentNode.data.category === 'Human Interaction' || 
+                                            currentNode.data.label === 'User Input' ||
+                                            currentNode.data.model === 'user-input';
 
             if (isUserInputNode) {
                 // --- USER INPUT NODE ---
@@ -2458,13 +2657,61 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                     addLog('info', `🗄️ Database ${isRead ? 'Read' : 'Write'}: ${table || 'no table'}`, currentNode.id);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     try {
+                        let writeData = isRead ? undefined : inputContext;
+                        
+                        // LLM pre-formatting for write: structure unstructured text into proper JSON columns
+                        if (!isRead && inputContext && writeData) {
+                            let isAlreadyJSON = false;
+                            try {
+                                const parsed = JSON.parse(inputContext);
+                                if (typeof parsed === 'object' && !Array.isArray(parsed)) isAlreadyJSON = true;
+                            } catch {}
+                            
+                            if (!isAlreadyJSON) {
+                                addLog('info', '✨ Formatting data into database columns with AI...', currentNode.id);
+                                try {
+                                    const formatPrompt = currentNode.data.llmAutoMapPrompt || 
+                                        `Extract structured data from the input and output ONLY a JSON object where keys are column names and values are the data.
+Example: {"name": "John Doe", "email": "john@email.com", "age": 30}
+Use descriptive, lowercase, snake_case column names.
+IMPORTANT: Output ONLY the JSON object, no explanation or markdown.`;
+                                    
+                                    const resp = await fetch('http://localhost:8080/api/v1/ai/chat', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                                        body: JSON.stringify({
+                                            prompt: `Format this data into a structured database row (JSON object with column names as keys)${table ? ` for table "${table}"` : ''}:\n\n${inputContext}`,
+                                            systemPrompt: formatPrompt,
+                                            model: currentNode.data.llmAutoMapModel || currentNode.data.llmModel || 'gpt-oss-120b'
+                                        })
+                                    });
+                                    const chatResult = await resp.json();
+                                    if (chatResult.success && chatResult.data?.response) {
+                                        const aiResponse = chatResult.data.response;
+                                        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+                                        if (jsonMatch) {
+                                            try {
+                                                const parsed = JSON.parse(jsonMatch[0]);
+                                                if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                                    writeData = JSON.stringify(parsed);
+                                                    addLog('success', `AI structured data into ${Object.keys(parsed).length} columns: ${Object.keys(parsed).join(', ')}`, currentNode.id);
+                                                }
+                                            } catch { /* keep original */ }
+                                        }
+                                    }
+                                } catch (fmtErr: any) {
+                                    addLog('warning', `AI formatting failed, using raw data: ${fmtErr.message}`, currentNode.id);
+                                }
+                            }
+                        }
+                        
                         const resp = await fetch('http://localhost:8080/api/v1/database/execute', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
                                 operation: isRead ? 'select' : (currentNode.data.dbOperation || 'insert'),
                                 table, filter: currentNode.data.dbFilter, limit: currentNode.data.dbLimit,
-                                data: isRead ? undefined : inputContext,
+                                data: writeData,
                                 dbType: currentNode.data.dbType || 'sqlite',
                                 connectionString: currentNode.data.connectionString || '',
                             })
@@ -2655,17 +2902,69 @@ Do not include JSON characters, brackets, or code blocks in your final output un
 
                 } else if (currentNode.data.model === 'google-sheets') {
                     // --- GOOGLE SHEETS ---
-                    addLog('info', `Google Sheets: ${currentNode.data.integrationAction || 'read-sheet'}...`, currentNode.id);
+                    const sheetsAction = currentNode.data.integrationAction || 'read-sheet';
+                    addLog('info', `Google Sheets: ${sheetsAction}...`, currentNode.id);
                     setNodes(prev => prev.map(n => n.id === currentNode.id ? { ...n, data: { ...n.data, isExecuting: true } } : n));
                     try {
+                        let rowData = currentNode.data.sheetsRowData || inputContext || '[]';
+                        
+                        // LLM pre-formatting for write operations: structure unstructured text into proper columns
+                        if ((sheetsAction === 'append-row' || sheetsAction === 'update-cell') && inputContext && !currentNode.data.sheetsRowData) {
+                            // Check if inputContext is already valid JSON array
+                            let isAlreadyStructured = false;
+                            try {
+                                const parsed = JSON.parse(inputContext);
+                                if (Array.isArray(parsed)) isAlreadyStructured = true;
+                            } catch {}
+                            
+                            if (!isAlreadyStructured) {
+                                addLog('info', '✨ Formatting data into spreadsheet columns with AI...', currentNode.id);
+                                try {
+                                    const formatPrompt = currentNode.data.llmAutoMapPrompt || 
+                                        `Extract structured data from the input and output ONLY a JSON 2D array for Google Sheets.
+Each inner array is one row. The FIRST row should be column headers.
+Example: [["Name","Email","Phone"],["John Doe","john@email.com","555-1234"]]
+If the input contains multiple records, output multiple data rows after the header row.
+IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
+                                    
+                                    const resp = await fetch('http://localhost:8080/api/v1/ai/chat', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
+                                        body: JSON.stringify({
+                                            prompt: `Format this data into a structured spreadsheet (2D JSON array with headers as first row):\n\n${inputContext}`,
+                                            systemPrompt: formatPrompt,
+                                            model: currentNode.data.llmAutoMapModel || currentNode.data.llmModel || 'gpt-oss-120b'
+                                        })
+                                    });
+                                    const chatResult = await resp.json();
+                                    if (chatResult.success && chatResult.data?.response) {
+                                        // Extract the JSON array from the LLM response
+                                        const aiResponse = chatResult.data.response;
+                                        const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+                                        if (jsonMatch) {
+                                            try {
+                                                const parsed = JSON.parse(jsonMatch[0]);
+                                                if (Array.isArray(parsed) && parsed.length > 0) {
+                                                    rowData = JSON.stringify(parsed);
+                                                    addLog('success', `AI formatted data into ${parsed.length} rows × ${(parsed[0] || []).length} columns`, currentNode.id);
+                                                }
+                                            } catch { /* keep original rowData */ }
+                                        }
+                                    }
+                                } catch (fmtErr: any) {
+                                    addLog('warning', `AI formatting failed, using raw data: ${fmtErr.message}`, currentNode.id);
+                                }
+                            }
+                        }
+                        
                         const resp = await fetch(`http://localhost:8080/api/v1/integrations/sheets/execute`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
                             body: JSON.stringify({
-                                action: currentNode.data.integrationAction || 'read-sheet',
+                                action: sheetsAction,
                                 sheetsId: currentNode.data.sheetsId,
                                 range: currentNode.data.sheetsRange || 'Sheet1!A1:Z100',
-                                rowData: currentNode.data.sheetsRowData || inputContext || '[]',
+                                rowData: rowData,
                                 serviceAccountJson: currentNode.data.sheetsServiceAccountJson
                             })
                         });
@@ -2871,6 +3170,22 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                  addLog('success', 'Trigger Activated', currentNode.id);
             }
 
+            nodeSuccess = true;
+            break;
+            } catch (err: any) {
+                lastNodeError = err;
+                addLog('warning', `Attempt ${attempt}/${maxNodeAttempts} failed for node "${currentNode.data.label}": ${err.message}`, currentNode.id);
+                if (attempt < maxNodeAttempts) {
+                    const delay = 1000 * attempt;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        if (!nodeSuccess && lastNodeError) {
+            throw lastNodeError;
+        }
+
             executed.add(currentNode.id);
             const shouldPassForward = passForwardMap.get(currentNode.id) !== false;
             if (shouldPassForward) {
@@ -2962,6 +3277,14 @@ Do not include JSON characters, brackets, or code blocks in your final output un
         className="hidden" 
         multiple={false}
       />
+
+      {/* --- INTEGRATION HELP MODAL --- */}
+      {showHelpFor && (
+        <IntegrationHelpModal 
+          type={showHelpFor} 
+          onClose={() => setShowHelpFor(null)} 
+        />
+      )}
 
       {/* --- SETTINGS MODAL --- */}
       {showSettings && (
@@ -3345,12 +3668,22 @@ Do not include JSON characters, brackets, or code blocks in your final output un
         <div style={{ transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`, transformOrigin: '0 0', width: '100%', height: '100%' }}>
             
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 2 L 8 5 L 0 8 z" fill="#666" />
+                </marker>
+                <marker id="arrow-selected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 2 L 8 5 L 0 8 z" fill="#D90429" />
+                </marker>
+              </defs>
               {edges.map(edge => {
                 const source = nodes.find(n => n.id === edge.source);
                 const target = nodes.find(n => n.id === edge.target);
                 if (!source || !target) return null;
                 
-                // Calculate Y position based on endpoint index
+                const sourceSide = edge.sourceSide || 'right';
+                const targetSide = edge.targetSide || 'left';
+                
                 const sourceOutputCount = source.data.outputEndpoints || 1;
                 const targetInputCount = target.data.inputEndpoints || 1;
                 const sourceEndpointIdx = edge.sourceEndpoint || 0;
@@ -3359,16 +3692,46 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                 const sourceYOffset = sourceOutputCount === 1 
                   ? NODE_HEIGHT / 2 
                   : NODE_HEIGHT * (0.2 + (0.6 / sourceOutputCount) * (sourceEndpointIdx + 0.5));
+                const sourceXOffset = sourceOutputCount === 1
+                  ? NODE_WIDTH / 2
+                  : NODE_WIDTH * (0.2 + (0.6 / sourceOutputCount) * (sourceEndpointIdx + 0.5));
+                
                 const targetYOffset = targetInputCount === 1 
                   ? NODE_HEIGHT / 2 
                   : NODE_HEIGHT * (0.2 + (0.6 / targetInputCount) * (targetEndpointIdx + 0.5));
+                const targetXOffset = targetInputCount === 1
+                  ? NODE_WIDTH / 2
+                  : NODE_WIDTH * (0.2 + (0.6 / targetInputCount) * (targetEndpointIdx + 0.5));
                 
-                const sourcePos = { x: source.position.x + NODE_WIDTH, y: source.position.y + sourceYOffset };
-                const targetPos = { x: target.position.x, y: target.position.y + targetYOffset };
+                let sourcePos = { x: source.position.x + NODE_WIDTH, y: source.position.y + sourceYOffset };
+                if (sourceSide === 'left') {
+                  sourcePos = { x: source.position.x, y: source.position.y + sourceYOffset };
+                } else if (sourceSide === 'top') {
+                  sourcePos = { x: source.position.x + sourceXOffset, y: source.position.y };
+                } else if (sourceSide === 'bottom') {
+                  sourcePos = { x: source.position.x + sourceXOffset, y: source.position.y + NODE_HEIGHT };
+                }
+                
+                let targetPos = { x: target.position.x, y: target.position.y + targetYOffset };
+                if (targetSide === 'right') {
+                  targetPos = { x: target.position.x + NODE_WIDTH, y: target.position.y + targetYOffset };
+                } else if (targetSide === 'top') {
+                  targetPos = { x: target.position.x + targetXOffset, y: target.position.y };
+                } else if (targetSide === 'bottom') {
+                  targetPos = { x: target.position.x + targetXOffset, y: target.position.y + NODE_HEIGHT };
+                }
+                
                 return (
                     <g key={edge.id}>
-                        <path d={getEdgePath(sourcePos, targetPos)} stroke="#333" strokeWidth="4" fill="none" />
-                        <path d={getEdgePath(sourcePos, targetPos)} stroke={selectedNodeId === edge.source ? "#D90429" : "#666"} strokeWidth="1.5" fill="none" className="transition-colors duration-300" />
+                        <path d={getEdgePath(sourcePos, targetPos, sourceSide, targetSide)} stroke="#333" strokeWidth="4" fill="none" />
+                        <path 
+                          d={getEdgePath(sourcePos, targetPos, sourceSide, targetSide)} 
+                          stroke={selectedNodeId === edge.source ? "#D90429" : "#666"} 
+                          strokeWidth="1.5" 
+                          fill="none" 
+                          className="transition-colors duration-300"
+                          markerEnd={selectedNodeId === edge.source ? "url(#arrow-selected)" : "url(#arrow)"}
+                        />
                     </g>
                 );
               })}
@@ -3377,18 +3740,26 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                 const connectingNode = nodes.find(n => n.id === connectingNodeId);
                 if (!connectingNode) return null;
                 const outputCount = connectingNode.data.outputEndpoints || 1;
-                const yOffset = outputCount === 1 
+                
+                const sourceYOffset = outputCount === 1 
                   ? NODE_HEIGHT / 2 
                   : NODE_HEIGHT * (0.2 + (0.6 / outputCount) * (connectingEndpoint + 0.5));
+                const sourceXOffset = outputCount === 1
+                  ? NODE_WIDTH / 2
+                  : NODE_WIDTH * (0.2 + (0.6 / outputCount) * (connectingEndpoint + 0.5));
+                
+                let startPos = { x: connectingNode.position.x + NODE_WIDTH, y: connectingNode.position.y + sourceYOffset };
+                if (connectingSide === 'left') {
+                  startPos = { x: connectingNode.position.x, y: connectingNode.position.y + sourceYOffset };
+                } else if (connectingSide === 'top') {
+                  startPos = { x: connectingNode.position.x + sourceXOffset, y: connectingNode.position.y };
+                } else if (connectingSide === 'bottom') {
+                  startPos = { x: connectingNode.position.x + sourceXOffset, y: connectingNode.position.y + NODE_HEIGHT };
+                }
+                
                 return (
                   <path 
-                    d={getEdgePath(
-                        { 
-                            x: connectingNode.position.x + NODE_WIDTH, 
-                            y: connectingNode.position.y + yOffset 
-                        }, 
-                        mousePos
-                    )} 
+                    d={getEdgePath(startPos, mousePos, connectingSide, 'left')} 
                     stroke="#D90429" 
                     strokeWidth="2" 
                     strokeDasharray="5,5" 
@@ -3423,7 +3794,7 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                       key={`in-${idx}`}
                       className="absolute -left-3 w-6 h-6 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform z-50 group/handle"
                       style={{ top: yOffset, transform: 'translateY(-50%)' }}
-                      onMouseUp={(e) => handleMouseUpHandle(e, node.id, idx)}
+                      onMouseUp={(e) => handleMouseUpHandle(e, node.id, idx, 'left')}
                       title={`Input ${idx + 1}`}
                     >
                       <div className="w-3 h-3 bg-black border-2 border-gray-500 rounded-full group-hover/handle:border-white group-hover/handle:bg-cherry transition-colors" />
@@ -3442,7 +3813,7 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                       key={`out-${idx}`}
                       className="absolute -right-3 w-6 h-6 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform z-50 group/handle"
                       style={{ top: yOffset, transform: 'translateY(-50%)' }}
-                      onMouseDown={(e) => handleMouseDownHandle(e, node.id, idx)}
+                      onMouseDown={(e) => handleMouseDownHandle(e, node.id, idx, 'right')}
                       title={`Output ${idx + 1}`}
                     >
                       <div className="w-3 h-3 bg-black border-2 border-gray-500 rounded-full group-hover/handle:border-white group-hover/handle:bg-emerald-400 transition-colors" />
@@ -3452,6 +3823,34 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                     </div>
                   );
                 })}
+
+                {/* Integration Top (Config Input) Handle */}
+                {(() => {
+                  const isIntegration = node.data.category === 'Integrations' || node.data.category === 'Database';
+                  return isIntegration && (
+                    <div 
+                      className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform z-50 group/handle"
+                      onMouseUp={(e) => handleMouseUpHandle(e, node.id, 0, 'top')}
+                      title="Config Input"
+                    >
+                      <div className="w-3 h-3 bg-black border-2 border-gray-500 rounded-full group-hover/handle:border-white group-hover/handle:bg-cherry transition-colors" />
+                    </div>
+                  );
+                })()}
+
+                {/* Integration Bottom (Config Output) Handle */}
+                {(() => {
+                  const isIntegration = node.data.category === 'Integrations' || node.data.category === 'Database';
+                  return isIntegration && (
+                    <div 
+                      className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform z-50 group/handle"
+                      onMouseDown={(e) => handleMouseDownHandle(e, node.id, 0, 'bottom')}
+                      title="Config Output"
+                    >
+                      <div className="w-3 h-3 bg-black border-2 border-gray-500 rounded-full group-hover/handle:border-white group-hover/handle:bg-emerald-400 transition-colors" />
+                    </div>
+                  );
+                })()}
 
                 {/* Output Ready Badge */}
                 {node.data.output && (
@@ -3903,7 +4302,23 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                 </p>
                              </div>
                              <div className="space-y-1 mt-3">
-                                <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Webhook URL</label>
+                                <div className="flex items-center justify-between">
+                                       <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Webhook URL</label>
+                                       <button 
+                                         onClick={() => setShowHelpFor('discord')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
+                                       <button 
+                                         onClick={() => setShowHelpFor('discord')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
                                 <div className="flex items-center gap-2">
                                    <input 
                                      type="text" 
@@ -4202,7 +4617,8 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                </>
                              )}
                              {selectedNode.data.model === 'db-write' && (
-                               <div className="space-y-1">
+                               <>
+<div className="space-y-1">
                                   <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Operation</label>
                                   <select 
                                     value={selectedNode.data.dbOperation || 'insert'}
@@ -4214,6 +4630,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     <option value="upsert">Upsert</option>
                                   </select>
                                </div>
+
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Output a JSON object matching database columns."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                              )}
                           </>
                         ) : selectedNode.data.category === 'Web & Search' ? (
@@ -4230,10 +4728,74 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
                                   />
                                   <p className="text-[9px] text-gray-500">Leave empty to use input from the previous node</p>
-                                  <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
-                                     <p className="text-[9px] text-emerald-400">✅ No API key needed — DuckDuckGo is completely free</p>
+
+
+                               
+                                  {/* LLM Synthesis Configuration */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center gap-1.5 font-bold">
+                                       <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                       <span className="text-xs font-bold text-cream">AI Synthesis Model</span>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">System / Instruction Prompt</label>
+                                       <textarea
+                                         value={selectedNode.data.systemPrompt || ''}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, systemPrompt: e.target.value } } : n))}
+                                         rows={3}
+                                         placeholder="e.g., Validate search results and extract key statistics answering the query."
+                                         className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                       />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                       <select
+                                         value={selectedNode.data.llmModel || 'gpt-oss-120b'}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmModel: e.target.value } } : n))}
+                                         className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                       >
+                                         <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                         <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                         <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                       </select>
+                                    </div>
+
+                                    {/* 🔑 BYOK Button */}
+                                    <div className="space-y-1">
+                                      <button
+                                        onClick={() => { setApiKeyModalContext('synthesis'); setShowApiKeyModal(true); }}
+                                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm">🔑</span>
+                                          <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                            {selectedNode.data.llmApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                          </span>
+                                        </div>
+                                        {selectedNode.data.llmApiKey ? (
+                                          <span className="text-[9px] text-emerald-400 font-mono">
+                                            {selectedNode.data.llmProvider?.toUpperCase()} ✓
+                                          </span>
+                                        ) : (
+                                          <span className="text-[9px] text-gray-500">Optional</span>
+                                        )}
+                                      </button>
+                                      {selectedNode.data.llmApiKey && (
+                                        <div className="flex items-center justify-between px-2">
+                                          <p className="text-[9px] text-emerald-400/70 font-mono">
+                                            {selectedNode.data.llmApiKey.substring(0, 8)}...{selectedNode.data.llmApiKey.slice(-4)}
+                                          </p>
+                                          <button
+                                            onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmApiKey: undefined, llmProvider: undefined } } : n))}
+                                            className="text-[9px] text-red-400 hover:text-red-300"
+                                          >Remove</button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                               </div>
+</div>
                              )}
                              {selectedNode.data.model === 'rss-reader' && (
                                <>
@@ -4256,10 +4818,74 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
                                     />
                                  </div>
-                                 <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
-                                    <p className="text-[9px] text-emerald-400">✅ No API key needed — RSS is an open standard</p>
-                                 </div>
-                               </>
+
+
+                               
+                                  {/* LLM Synthesis Configuration */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center gap-1.5 font-bold">
+                                       <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                       <span className="text-xs font-bold text-cream">AI Synthesis Model</span>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">System / Instruction Prompt</label>
+                                       <textarea
+                                         value={selectedNode.data.systemPrompt || ''}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, systemPrompt: e.target.value } } : n))}
+                                         rows={3}
+                                         placeholder="e.g., Validate search results and extract key statistics answering the query."
+                                         className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                       />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                       <select
+                                         value={selectedNode.data.llmModel || 'gpt-oss-120b'}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmModel: e.target.value } } : n))}
+                                         className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                       >
+                                         <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                         <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                         <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                       </select>
+                                    </div>
+
+                                    {/* 🔑 BYOK Button */}
+                                    <div className="space-y-1">
+                                      <button
+                                        onClick={() => { setApiKeyModalContext('synthesis'); setShowApiKeyModal(true); }}
+                                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm">🔑</span>
+                                          <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                            {selectedNode.data.llmApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                          </span>
+                                        </div>
+                                        {selectedNode.data.llmApiKey ? (
+                                          <span className="text-[9px] text-emerald-400 font-mono">
+                                            {selectedNode.data.llmProvider?.toUpperCase()} ✓
+                                          </span>
+                                        ) : (
+                                          <span className="text-[9px] text-gray-500">Optional</span>
+                                        )}
+                                      </button>
+                                      {selectedNode.data.llmApiKey && (
+                                        <div className="flex items-center justify-between px-2">
+                                          <p className="text-[9px] text-emerald-400/70 font-mono">
+                                            {selectedNode.data.llmApiKey.substring(0, 8)}...{selectedNode.data.llmApiKey.slice(-4)}
+                                          </p>
+                                          <button
+                                            onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmApiKey: undefined, llmProvider: undefined } } : n))}
+                                            className="text-[9px] text-red-400 hover:text-red-300"
+                                          >Remove</button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+</>
                              )}
                              {selectedNode.data.model === 'transform' && (
                                <div className="space-y-1">
@@ -4377,7 +5003,8 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                </>
                              )}
                              {selectedNode.data.model === 'db-write' && (
-                               <div className="space-y-1">
+                               <>
+<div className="space-y-1">
                                   <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Operation</label>
                                   <select 
                                     value={selectedNode.data.dbOperation || 'insert'}
@@ -4389,6 +5016,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     <option value="upsert">Upsert</option>
                                   </select>
                                </div>
+
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Output a JSON object matching database columns."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                              )}
                           </>
                         ) : selectedNode.data.category === 'Web & Search' ? (
@@ -4405,10 +5114,74 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
                                   />
                                   <p className="text-[9px] text-gray-500">Leave empty to use input from the previous node</p>
-                                  <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
-                                     <p className="text-[9px] text-emerald-400">✅ No API key needed — DuckDuckGo is completely free</p>
+
+
+                               
+                                  {/* LLM Synthesis Configuration */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center gap-1.5 font-bold">
+                                       <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                       <span className="text-xs font-bold text-cream">AI Synthesis Model</span>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">System / Instruction Prompt</label>
+                                       <textarea
+                                         value={selectedNode.data.systemPrompt || ''}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, systemPrompt: e.target.value } } : n))}
+                                         rows={3}
+                                         placeholder="e.g., Validate search results and extract key statistics answering the query."
+                                         className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                       />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                       <select
+                                         value={selectedNode.data.llmModel || 'gpt-oss-120b'}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmModel: e.target.value } } : n))}
+                                         className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                       >
+                                         <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                         <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                         <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                       </select>
+                                    </div>
+
+                                    {/* 🔑 BYOK Button */}
+                                    <div className="space-y-1">
+                                      <button
+                                        onClick={() => { setApiKeyModalContext('synthesis'); setShowApiKeyModal(true); }}
+                                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm">🔑</span>
+                                          <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                            {selectedNode.data.llmApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                          </span>
+                                        </div>
+                                        {selectedNode.data.llmApiKey ? (
+                                          <span className="text-[9px] text-emerald-400 font-mono">
+                                            {selectedNode.data.llmProvider?.toUpperCase()} ✓
+                                          </span>
+                                        ) : (
+                                          <span className="text-[9px] text-gray-500">Optional</span>
+                                        )}
+                                      </button>
+                                      {selectedNode.data.llmApiKey && (
+                                        <div className="flex items-center justify-between px-2">
+                                          <p className="text-[9px] text-emerald-400/70 font-mono">
+                                            {selectedNode.data.llmApiKey.substring(0, 8)}...{selectedNode.data.llmApiKey.slice(-4)}
+                                          </p>
+                                          <button
+                                            onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmApiKey: undefined, llmProvider: undefined } } : n))}
+                                            className="text-[9px] text-red-400 hover:text-red-300"
+                                          >Remove</button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                               </div>
+</div>
                              )}
                              {selectedNode.data.model === 'rss-reader' && (
                                <>
@@ -4431,114 +5204,86 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                       className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-cyan-400 focus:outline-none rounded-md"
                                     />
                                  </div>
-                                 <div className="p-2 bg-emerald-500/10 rounded border border-emerald-500/20 mt-2">
-                                    <p className="text-[9px] text-emerald-400">✅ No API key needed — RSS is an open standard</p>
-                                 </div>
-                               </>
+
+
+                               
+                                  {/* LLM Synthesis Configuration */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center gap-1.5 font-bold">
+                                       <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                       <span className="text-xs font-bold text-cream">AI Synthesis Model</span>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">System / Instruction Prompt</label>
+                                       <textarea
+                                         value={selectedNode.data.systemPrompt || ''}
+                                         onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, systemPrompt: e.target.value } } : n))}
+                                         rows={3}
+                                         placeholder="e.g., Validate search results and extract key statistics answering the query."
+                                         className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                       />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                       <div className="space-y-1">
+                                          <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Provider</label>
+                                          <select
+                                            value={selectedNode.data.llmProvider || 'groq'}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmProvider: e.target.value } } : n))}
+                                            className="w-full bg-black/50 border border-white/10 p-1.5 text-[11px] text-cream focus:border-cherry focus:outline-none rounded-md"
+                                          >
+                                            <option value="groq">Groq</option>
+                                            <option value="openai">OpenAI</option>
+                                            <option value="anthropic">Anthropic</option>
+                                            <option value="google">Google Gemini</option>
+                                            <option value="openrouter">OpenRouter</option>
+                                          </select>
+                                       </div>
+                                       <div className="space-y-1">
+                                          <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                          <input
+                                            type="text"
+                                            value={selectedNode.data.llmModel || ''}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmModel: e.target.value } } : n))}
+                                            placeholder="mixtral-8x7b-32768"
+                                            className="w-full bg-black/50 border border-white/10 p-1.5 text-[11px] text-cream focus:border-gray-400 focus:outline-none rounded-md font-mono"
+                                          />
+                                       </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                       <div className="space-y-1">
+                                          <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Temperature</label>
+                                          <input
+                                            type="number"
+                                            step="0.1"
+                                            min="0"
+                                            max="1"
+                                            value={selectedNode.data.llmTemperature !== undefined ? selectedNode.data.llmTemperature : 0.3}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmTemperature: parseFloat(e.target.value) || 0.3 } } : n))}
+                                            className="w-full bg-black/50 border border-white/10 p-1.5 text-[11px] text-cream focus:border-cherry focus:outline-none rounded-md"
+                                          />
+                                       </div>
+                                       <div className="space-y-1">
+                                          <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Custom API Key</label>
+                                          <input
+                                            type="password"
+                                            value={selectedNode.data.llmApiKey || ''}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmApiKey: e.target.value } } : n))}
+                                            placeholder="Optional key"
+                                            className="w-full bg-black/50 border border-white/10 p-1.5 text-[11px] text-cream focus:border-cherry focus:outline-none rounded-md font-mono"
+                                          />
+                                       </div>
+                                    </div>
+                                  </div>
+</>
                              )}
                           </>
                         ) : selectedNode.data.category === 'Integrations' ? (
                           // --- INTEGRATIONS CONFIGURATION ---
                           <>
-                             {selectedNode.data.model === 'github-api' && (
-                               <>
-                                  <div className="p-2.5 bg-violet-500/10 border border-violet-500/30 rounded-lg">
-                                    <p className="text-[9px] font-bold text-violet-400 mb-1">🔑 Get Your Token (2 min)</p>
-                                    <ol className="text-[9px] text-violet-400/70 space-y-0.5 list-decimal list-inside">
-                                      <li>github.com → Settings → Developer Settings</li>
-                                      <li>Personal Access Tokens → Fine-grained tokens</li>
-                                      <li>Generate new token → Copy it here</li>
-                                    </ol>
-                                  </div>
-                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
-                                       GitHub Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
-                                    </label>
-                                    <input 
-                                      type="password" 
-                                      value={selectedNode.data.integrationToken || ''}
-                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationToken: e.target.value } } : n))}
-                                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
-                                    />
-                                    <p className="text-[9px] text-gray-500">🔒 Your token is never stored on any server</p>
-                                 </div>
-                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Action</label>
-                                    <select 
-                                      value={selectedNode.data.integrationAction || 'list-repos'}
-                                      onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, integrationAction: e.target.value } } : n))}
-                                      className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
-                                    >
-                                      <option value="list-repos">📁 List Repos</option>
-                                      <option value="list-issues">🐛 List Issues</option>
-                                      <option value="create-issue">➕ Create Issue</option>
-                                      <option value="read-file">📄 Read File</option>
-                                      <option value="list-commits">📝 List Commits</option>
-                                    </select>
-                                 </div>
-                                 {selectedNode.data.integrationAction !== 'list-repos' && (
-                                   <>
-                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Owner / Org</label>
-                                        <input 
-                                          type="text" 
-                                          value={selectedNode.data.ghOwner || ''}
-                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghOwner: e.target.value } } : n))}
-                                          placeholder="octocat"
-                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
-                                        />
-                                     </div>
-                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Repository</label>
-                                        <input 
-                                          type="text" 
-                                          value={selectedNode.data.ghRepo || ''}
-                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghRepo: e.target.value } } : n))}
-                                          placeholder="my-project"
-                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
-                                        />
-                                     </div>
-                                   </>
-                                 )}
-                                 {selectedNode.data.integrationAction === 'create-issue' && (
-                                   <>
-                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Issue Title</label>
-                                        <input 
-                                          type="text" 
-                                          value={selectedNode.data.ghIssueTitle || ''}
-                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghIssueTitle: e.target.value } } : n))}
-                                          placeholder="Bug: Something is broken"
-                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md"
-                                        />
-                                     </div>
-                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Issue Body</label>
-                                        <textarea 
-                                          value={selectedNode.data.ghIssueBody || ''}
-                                          onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghIssueBody: e.target.value } } : n))}
-                                          rows={3}
-                                          placeholder="Description of the issue..."
-                                          className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-violet-400 focus:outline-none resize-none font-mono rounded-md"
-                                        />
-                                     </div>
-                                   </>
-                                 )}
-                                 {selectedNode.data.integrationAction === 'read-file' && (
-                                   <div className="space-y-1">
-                                      <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">File Path</label>
-                                      <input 
-                                        type="text" 
-                                        value={selectedNode.data.ghFilePath || ''}
-                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, ghFilePath: e.target.value } } : n))}
-                                        placeholder="README.md"
-                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream focus:border-violet-400 focus:outline-none rounded-md font-mono"
-                                      />
-                                   </div>
-                                 )}
-                               </>
-                             )}
+                             
 
                              {selectedNode.data.model === 'telegram-bot' && (
                                <>
@@ -4552,9 +5297,18 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     </ol>
                                   </div>
                                  <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
-                                       Bot Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
+                                          Bot Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
+                                       </label>
+                                       <button 
+                                         type="button"
+                                         onClick={() => setShowHelpFor('telegram-bot')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
                                     <input 
                                       type="password" 
                                       value={selectedNode.data.integrationToken || ''}
@@ -4609,7 +5363,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                       />
                                    </div>
                                  )}
-                               </>
+                               
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Format the text notification. Output a plain-text message."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                              )}
 
                              {selectedNode.data.model === 'notion' && (
@@ -4623,9 +5458,18 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     </ol>
                                   </div>
                                  <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
-                                       Notion Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
+                                          Notion Token {selectedNode.data.integrationToken && <span className="text-green-400 normal-case ml-1">✓ Set</span>}
+                                       </label>
+                                       <button 
+                                         type="button"
+                                         onClick={() => setShowHelpFor('notion')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
                                     <input 
                                       type="password" 
                                       value={selectedNode.data.integrationToken || ''}
@@ -4695,7 +5539,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                       />
                                     </div>
                                   )}
-                                </>
+                                
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Format the text notification. Output a plain-text message."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                               )}
                         
                               {selectedNode.data.model === 'discord' && (
@@ -4709,7 +5634,16 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     </ol>
                                   </div>
                                   <div className="space-y-1">
-                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Webhook URL</label>
+                                     <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Webhook URL</label>
+                                       <button 
+                                         type="button"
+                                         onClick={() => setShowHelpFor('discord')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
                                      <input 
                                        type="password" 
                                        value={selectedNode.data.discordWebhookUrl || ''}
@@ -4728,7 +5662,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-indigo-400 focus:outline-none resize-none font-mono rounded-md"
                                      />
                                   </div>
-                                </>
+                                
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Format the message context into a clean Discord alert."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                               )}
 
                               {selectedNode.data.model === 'google-sheets' && (
@@ -4776,7 +5791,16 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                      />
                                   </div>
                                   <div className="space-y-1">
-                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Service Account JSON</label>
+                                     <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Service Account JSON</label>
+                                       <button 
+                                         type="button"
+                                         onClick={() => setShowHelpFor('google-sheets')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
                                      <textarea 
                                        value={selectedNode.data.sheetsServiceAccountJson || ''}
                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, sheetsServiceAccountJson: e.target.value } } : n))}
@@ -4786,7 +5810,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                      />
                                      <p className="text-[9px] text-gray-500">Paste full JSON from your downloaded key file</p>
                                   </div>
-                                </>
+                                
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Map fields from input context to rowData format (JSON array)."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                               )}
 
                               {selectedNode.data.model === 'github-api' && (
@@ -4800,9 +5905,18 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                     </ol>
                                   </div>
                                   <div className="space-y-1">
-                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
-                                       GitHub Token {selectedNode.data.integrationToken && <span className="text-emerald-400">✓</span>}
-                                     </label>
+                                     <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">
+                                          GitHub Token {selectedNode.data.integrationToken && <span className="text-emerald-400">✓</span>}
+                                       </label>
+                                       <button 
+                                         type="button"
+                                         onClick={() => setShowHelpFor('github-api')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
                                      <input 
                                        type="password" 
                                        value={selectedNode.data.integrationToken || ''}
@@ -4848,7 +5962,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                        />
                                     </div>
                                   )}
-                                </>
+                                
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Output a JSON object containing {'title': '...', 'body': '...'} to create a GitHub issue."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                               )}
 
                               {selectedNode.data.model === 'firebase' && (
@@ -4887,7 +6082,16 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                      <p className="text-[9px] text-gray-500">e.g., users/user123 or orders/order456</p>
                                   </div>
                                   <div className="space-y-1">
-                                     <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Service Account JSON</label>
+                                     <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Service Account JSON</label>
+                                       <button 
+                                         type="button"
+                                         onClick={() => setShowHelpFor('firebase')}
+                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                                       >
+                                         ❓ Get Token / Help
+                                       </button>
+                                     </div>
                                      <textarea 
                                        value={selectedNode.data.firebaseServiceAccountJson || ''}
                                        onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, firebaseServiceAccountJson: e.target.value } } : n))}
@@ -4896,7 +6100,88 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                                        className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/80 focus:border-orange-400 focus:outline-none resize-none font-mono rounded-md"
                                      />
                                   </div>
-                                </>
+                                
+                                  {/* ✨ LLM Auto-Mapping Section */}
+                                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-1.5 font-bold">
+                                          <Sparkles className="w-3.5 h-3.5 text-cherry animate-pulse" />
+                                          <span className="text-xs font-bold text-cream">✨ LLM Agent Auto-Format/Map</span>
+                                       </div>
+                                       <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            checked={selectedNode.data.llmAutoMap || false}
+                                            onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMap: e.target.checked } } : n))}
+                                            className="sr-only peer"
+                                          />
+                                          <div className="w-7 h-4 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cherry peer-checked:after:bg-white"></div>
+                                       </label>
+                                    </div>
+                                    
+                                    {selectedNode.data.llmAutoMap && (
+                                      <div className="space-y-3 bg-[#0d0d0d] p-3 rounded-lg border border-white/5 animate-fadeIn">
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Mapping Instructions / Prompt</label>
+                                            <textarea
+                                              value={selectedNode.data.llmAutoMapPrompt || ''}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapPrompt: e.target.value } } : n))}
+                                              rows={3}
+                                              placeholder="e.g., Format JSON data matching your Firestore document fields."
+                                              className="w-full bg-black/50 border border-white/10 p-2 text-xs text-cream/90 focus:border-cherry focus:outline-none resize-none rounded-md"
+                                            />
+                                            <p className="text-[9px] text-gray-500 font-sans">Guide the LLM on how to extract and format the input context for this integration.</p>
+                                         </div>
+
+                                         <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Model</label>
+                                            <select
+                                              value={selectedNode.data.llmAutoMapModel || 'gpt-oss-120b'}
+                                              onChange={(e) => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapModel: e.target.value } } : n))}
+                                              className="w-full bg-[#050505] border border-white/10 p-2.5 text-xs text-cream focus:border-cherry focus:outline-none rounded-lg"
+                                            >
+                                              <option value="gpt-oss-120b">🧠 GPT-OSS 120B (Reasoning) [Free]</option>
+                                              <option value="tavily-search">🔍 Tavily (Web Search) [Free]</option>
+                                              <option value="groq-vision">👁️ Groq Llama 4 Scout (Vision) [Free]</option>
+                                            </select>
+                                         </div>
+
+                                         {/* 🔑 BYOK Button */}
+                                         <div className="space-y-1">
+                                           <button
+                                             onClick={() => { setApiKeyModalContext('llmAutoMap'); setShowApiKeyModal(true); }}
+                                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
+                                           >
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-sm">🔑</span>
+                                               <span className="text-[10px] font-bold text-cream/60 group-hover:text-cream/90 uppercase tracking-wider">
+                                                 {selectedNode.data.llmAutoMapApiKey ? 'Change API Key' : 'Add Custom API Key'}
+                                               </span>
+                                             </div>
+                                             {selectedNode.data.llmAutoMapApiKey ? (
+                                               <span className="text-[9px] text-emerald-400 font-mono">
+                                                 {selectedNode.data.llmAutoMapProvider?.toUpperCase()} ✓
+                                               </span>
+                                             ) : (
+                                               <span className="text-[9px] text-gray-500">Optional</span>
+                                             )}
+                                           </button>
+                                           {selectedNode.data.llmAutoMapApiKey && (
+                                             <div className="flex items-center justify-between px-2">
+                                               <p className="text-[9px] text-emerald-400/70 font-mono">
+                                                 {selectedNode.data.llmAutoMapApiKey.substring(0, 8)}...{selectedNode.data.llmAutoMapApiKey.slice(-4)}
+                                               </p>
+                                               <button
+                                                 onClick={() => setNodes(nodes.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } } : n))}
+                                                 className="text-[9px] text-red-400 hover:text-red-300"
+                                               >Remove</button>
+                                             </div>
+                                           )}
+                                         </div>
+                                      </div>
+                                    )}
+                                  </div>
+</>
                               )}
                            </>
                          ) : selectedNode.type === NodeType.AGENT ? (
@@ -4929,7 +6214,7 @@ Do not include JSON characters, brackets, or code blocks in your final output un
                             {/* 🔑 BYOK - Add Custom API Key Button */}
                             <div className="space-y-1">
                               <button
-                                onClick={() => setShowApiKeyModal(true)}
+                                onClick={() => { setApiKeyModalContext('agent'); setShowApiKeyModal(true); }}
                                 className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-cherry/50 hover:bg-cherry/5 transition-all group"
                               >
                                 <div className="flex items-center gap-2">
@@ -5427,11 +6712,20 @@ Do not include JSON characters, brackets, or code blocks in your final output un
             <div className="flex items-center justify-end gap-2 p-4 border-t border-white/10">
               <button
                 onClick={() => {
-                  // Clear custom API key
-                  setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
-                    ...n, 
-                    data: { ...n.data, customApiKey: undefined, apiProvider: undefined } 
-                  } : n));
+                  // Clear custom API key based on context
+                  if (apiKeyModalContext === 'agent') {
+                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
+                      ...n, data: { ...n.data, customApiKey: undefined, apiProvider: undefined } 
+                    } : n));
+                  } else if (apiKeyModalContext === 'synthesis') {
+                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
+                      ...n, data: { ...n.data, llmApiKey: undefined, llmProvider: undefined } 
+                    } : n));
+                  } else {
+                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
+                      ...n, data: { ...n.data, llmAutoMapApiKey: undefined, llmAutoMapProvider: undefined } 
+                    } : n));
+                  }
                   setShowApiKeyModal(false);
                   setTempApiKey('');
                 }}
@@ -5442,15 +6736,20 @@ Do not include JSON characters, brackets, or code blocks in your final output un
               <button
                 onClick={async () => {
                   if (tempApiKey.length > 10) {
-                    // Save to node data locally
-                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
-                      ...n, 
-                      data: { 
-                        ...n.data, 
-                        customApiKey: tempApiKey,
-                        apiProvider: selectedApiProvider
-                      } 
-                    } : n));
+                    // Save to node data locally based on context
+                    if (apiKeyModalContext === 'agent') {
+                      setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
+                        ...n, data: { ...n.data, customApiKey: tempApiKey, apiProvider: selectedApiProvider } 
+                      } : n));
+                    } else if (apiKeyModalContext === 'synthesis') {
+                      setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
+                        ...n, data: { ...n.data, llmApiKey: tempApiKey, llmProvider: selectedApiProvider } 
+                      } : n));
+                    } else {
+                      setNodes(prev => prev.map(n => n.id === selectedNode.id ? { 
+                        ...n, data: { ...n.data, llmAutoMapApiKey: tempApiKey, llmAutoMapProvider: selectedApiProvider } 
+                      } : n));
+                    }
                     
                     // Also persist to backend (encrypted, survives restarts)
                     try {

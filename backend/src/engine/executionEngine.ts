@@ -149,8 +149,33 @@ export class WorkflowExecutionEngine {
         throw new Error(`No handler registered for node type: ${node.type}`);
       }
 
-      // Execute the node
-      const output = await handler(node, input, this.context);
+      // Execute the node with up to 3 attempts
+      let output: any;
+      const maxAttempts = 3;
+      let lastError: any;
+      
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          output = await handler(node, input, this.context);
+          lastError = null;
+          break; // Success!
+        } catch (err: any) {
+          lastError = err;
+          logger.warn(`Node execution attempt ${attempt}/${maxAttempts} failed for "${node.name}" (${node.id}): ${err.message}`, {
+            nodeId: node.id,
+            executionId: this.context.executionId,
+            attempt
+          });
+          if (attempt < maxAttempts) {
+            const delay = 1000 * attempt;
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
 
       // Store the output
       this.context.nodeOutputs.set(node.id, output);

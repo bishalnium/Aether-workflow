@@ -92,73 +92,86 @@ export const generateAgentResponse = async (
     `[AI Agent] provider="${apiProvider || 'default'}" model="${actualModel}" ioType="${effectiveIoType}" hasCustomKey=${!!customApiKey}`
   );
 
-  try {
-    // ===========================================================
-    // TAVILY SEARCH — always uses env key regardless of BYOK
-    // ===========================================================
-    if (actualModel === 'tavily-search') {
-      console.log(`[TAVILY] Searching: ${prompt.substring(0, 100)}...`);
-      const resp = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: TAVILY_API_KEY, query: prompt, max_results: 5, include_answer: true }),
-      });
-      const data = await resp.json();
-      if (data.error) throw new Error(data.error || 'Tavily search failed');
-      let out = '';
-      if (data.answer) out += `**Summary:**\n${data.answer}\n\n`;
-      if (data.results?.length) {
-        out += `**Sources:**\n`;
-        data.results.forEach((r: any, i: number) => {
-          out += `\n${i + 1}. **${r.title}**\n   ${r.content?.substring(0, 200)}...\n   🔗 ${r.url}\n`;
-        });
-      }
-      return out || 'No search results found.';
-    }
+  const maxAttempts = 3;
+  let lastError: any;
 
-    // ===========================================================
-    // GROQ VISION — built-in vision (env key)
-    // ===========================================================
-    if (actualModel === 'groq-vision') {
-      const hasImage = imageUrl || prompt.startsWith('data:image');
-      if (hasImage) {
-        console.log('[GROQ] Vision model with image...');
-        const textPrompt = systemInstruction || prompt || 'Extract all text from this image.';
-        const content: any[] = [{ type: 'text', text: textPrompt }];
-        const imgSrc = imageUrl || prompt;
-        content.push({ type: 'image_url', image_url: { url: imgSrc } });
-        const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // ===========================================================
+      // TAVILY SEARCH — always uses env key regardless of BYOK
+      // ===========================================================
+      if (actualModel === 'tavily-search') {
+        console.log(`[TAVILY] Searching: ${prompt.substring(0, 100)}... (attempt ${attempt}/${maxAttempts})`);
+        const resp = await fetch('https://api.tavily.com/search', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: GROQ_VISION_MODEL, messages: [{ role: 'user', content }], max_tokens: 4096 }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: TAVILY_API_KEY, query: prompt, max_results: 5, include_answer: true }),
         });
         const data = await resp.json();
-        if (data.error) throw new Error(data.error.message || 'Groq vision failed');
-        return data.choices?.[0]?.message?.content || 'No text extracted.';
+        if (data.error) throw new Error(data.error || 'Tavily search failed');
+        let out = '';
+        if (data.answer) out += `**Summary:**\n${data.answer}\n\n`;
+        if (data.results?.length) {
+          out += `**Sources:**\n`;
+          data.results.forEach((r: any, i: number) => {
+            out += `\n${i + 1}. **${r.title}**\n   ${r.content?.substring(0, 200)}...\n   🔗 ${r.url}\n`;
+          });
+        }
+        return out || 'No search results found.';
       }
-      // No image — fall through to default text generation below
+
+      // ===========================================================
+      // GROQ VISION — built-in vision (env key)
+      // ===========================================================
+      if (actualModel === 'groq-vision') {
+        const hasImage = imageUrl || prompt.startsWith('data:image');
+        if (hasImage) {
+          console.log(`[GROQ] Vision model with image... (attempt ${attempt}/${maxAttempts})`);
+          const textPrompt = systemInstruction || prompt || 'Extract all text from this image.';
+          const content: any[] = [{ type: 'text', text: textPrompt }];
+          const imgSrc = imageUrl || prompt;
+          content.push({ type: 'image_url', image_url: { url: imgSrc } });
+          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: GROQ_VISION_MODEL, messages: [{ role: 'user', content }], max_tokens: 4096 }),
+          });
+          const data = await resp.json();
+          if (data.error) throw new Error(data.error.message || 'Groq vision failed');
+          return data.choices?.[0]?.message?.content || 'No text extracted.';
+        }
+        // No image — fall through to default text generation below
+      }
+
+      // ===========================================================
+      // BYOK ROUTING — user provided their own API key
+      // ===========================================================
+      if (customApiKey && apiProvider) {
+        console.log(`[AI Agent] Calling custom key provider (attempt ${attempt}/${maxAttempts})...`);
+        return await callWithCustomKey(prompt, systemInstruction, actualModel, imageUrl, customApiKey, apiProvider, effectiveIoType);
+      }
+
+      // ===========================================================
+      // DEFAULT — Groq GPT-OSS-120B Reasoning AI with rotation
+      // ===========================================================
+      console.log(`[GROQ] Using default GPT-OSS-120B reasoning model... (attempt ${attempt}/${maxAttempts})`);
+      const messages: any[] = [];
+      if (systemInstruction) messages.push({ role: 'system', content: systemInstruction });
+      messages.push({ role: 'user', content: prompt });
+
+      return await callGroqWithRotationFrontend(messages, 0.7);
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`[generateAgentResponse] Attempt ${attempt}/${maxAttempts} failed: ${error.message}`);
+      if (attempt < maxAttempts) {
+        const delay = 1000 * attempt;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
-
-    // ===========================================================
-    // BYOK ROUTING — user provided their own API key
-    // ===========================================================
-    if (customApiKey && apiProvider) {
-      return await callWithCustomKey(prompt, systemInstruction, actualModel, imageUrl, customApiKey, apiProvider, effectiveIoType);
-    }
-
-    // ===========================================================
-    // DEFAULT — Groq GPT-OSS-120B Reasoning AI with rotation
-    // ===========================================================
-    console.log('[GROQ] Using default GPT-OSS-120B reasoning model...');
-    const messages: any[] = [];
-    if (systemInstruction) messages.push({ role: 'system', content: systemInstruction });
-    messages.push({ role: 'user', content: prompt });
-
-    return await callGroqWithRotationFrontend(messages, 0.7);
-  } catch (error: any) {
-    console.error('[AI Service Error]', error);
-    throw new Error(`AI Error: ${error.message}`);
   }
+
+  console.error('[AI Service Error]', lastError);
+  throw new Error(`AI Error after ${maxAttempts} attempts: ${lastError.message}`);
 };
 
 

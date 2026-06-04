@@ -1,6 +1,6 @@
 // ===========================================
 // AETHER WORKFLOW ENGINE - Workflow Service
-// CRUD operations for workflows
+// CRUD operations for workflows using Prisma
 // ===========================================
 
 import { v4 as uuid } from 'uuid';
@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import { WorkflowDefinition, WorkflowNode, WorkflowEdge } from '../types/workflow.types';
 import { webhookService } from './webhookService';
 import { schedulerService } from './schedulerService';
+import prisma from '../utils/prismaClient';
 
 interface StoredWorkflow extends WorkflowDefinition {
   userId: string;
@@ -29,36 +30,102 @@ interface ExecutionRecord {
   nodeResults?: any[];
 }
 
-class WorkflowService {
-  private workflows: Map<string, StoredWorkflow> = new Map();
-  private executions: Map<string, ExecutionRecord> = new Map();
+// Helper: Ensure a valid user exists in PostgreSQL for this ID/email
+async function ensureUser(userId: string): Promise<string> {
+  if (userId.length === 36 && userId.includes('-')) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user) return user.id;
+  }
 
+  const email = userId.includes('@') ? userId : `${userId}@aether.local`;
+  const userByEmail = await prisma.user.findUnique({ where: { email } });
+  if (userByEmail) return userByEmail.id;
+
+  const newUser = await prisma.user.create({
+    data: {
+      email,
+      name: email.split('@')[0] || 'User',
+    }
+  });
+  logger.info(`Created placeholder user record: ${newUser.id} for ${userId}`);
+  return newUser.id;
+}
+
+// Helper: Map Prisma Workflow model to StoredWorkflow interface
+function mapDbWorkflow(dbW: any): StoredWorkflow {
+  return {
+    id: dbW.id,
+    name: dbW.name,
+    description: dbW.description || undefined,
+    isActive: dbW.isActive,
+    userId: dbW.userId,
+    createdAt: dbW.createdAt,
+    updatedAt: dbW.updatedAt,
+    settings: dbW.settings ? (typeof dbW.settings === 'string' ? JSON.parse(dbW.settings) : dbW.settings) : undefined,
+    nodes: (dbW.nodes || []).map((n: any) => ({
+      id: n.nodeId,
+      type: n.type,
+      name: n.name,
+      position: typeof n.position === 'string' ? JSON.parse(n.position) : n.position,
+      config: typeof n.config === 'string' ? JSON.parse(n.config) : n.config,
+      credentialId: n.credentials || undefined
+    })),
+    edges: (dbW.edges || []).map((e: any) => ({
+      id: e.edgeId,
+      source: e.sourceNodeId,
+      target: e.targetNodeId,
+      condition: e.condition ? (typeof e.condition === 'string' ? JSON.parse(e.condition) : e.condition) : undefined
+    }))
+  };
+}
+
+// Helper: Map Prisma Execution model to ExecutionRecord interface
+function mapDbExecution(dbE: any): ExecutionRecord {
+  return {
+    id: dbE.id,
+    workflowId: dbE.workflowId,
+    status: dbE.status.toLowerCase() as any,
+    mode: dbE.mode.toLowerCase(),
+    startedAt: dbE.startedAt || undefined,
+    finishedAt: dbE.finishedAt || undefined,
+    input: dbE.data,
+    output: dbE.outputData || undefined,
+    error: dbE.error || undefined,
+    nodeResults: (dbE.nodeExecutions || []).map((ne: any) => ({
+      nodeId: ne.nodeId,
+      status: ne.status.toLowerCase() as any,
+      startedAt: ne.startedAt || undefined,
+      finishedAt: ne.finishedAt || undefined,
+      data: ne.outputData,
+      error: ne.error || undefined
+    }))
+  };
+}
+
+class WorkflowService {
   constructor() {
-    logger.info('Workflow service initialized');
+    logger.info('Workflow database service initialized');
   }
 
   /**
-   * Create a new workflow
+   * Create a new workflow in PostgreSQL
    */
-  create(
+  async create(
     userId: string,
     data: {
-      id?: string; // Allow passing an ID from frontend
+      id?: string;
       name: string;
       description?: string;
       nodes?: WorkflowNode[];
       edges?: WorkflowEdge[];
       settings?: WorkflowDefinition['settings'];
     }
-  ): StoredWorkflow {
-    // Use provided ID or generate new one
+  ): Promise<StoredWorkflow> {
+    const dbUserId = await ensureUser(userId);
     const id = data.id || `wf_${uuid()}`;
-    const now = new Date();
-    
-    // Update node configs to use the correct workflow ID in webhook paths
+
     const nodes = (data.nodes || []).map(node => {
       if (node.config?.path && node.config.path.includes('/webhook/')) {
-        // Replace any incorrect workflow ID in the path with the actual ID
         return {
           ...node,
           config: {
@@ -70,45 +137,73 @@ class WorkflowService {
       return node;
     });
 
-    const workflow: StoredWorkflow = {
-      id,
-      name: data.name,
-      description: data.description,
-      nodes,
-      edges: data.edges || [],
-      settings: data.settings,
-      userId,
-      isActive: false,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const workflow = await prisma.workflow.create({
+      data: {
+        id,
+        name: data.name,
+        description: data.description || null,
+        isActive: false,
+        settings: data.settings ? (data.settings as any) : undefined,
+        userId: dbUserId,
+        nodes: {
+          create: nodes.map(n => ({
+            nodeId: n.id,
+            type: n.type as any,
+            name: n.name,
+            position: n.position as any,
+            config: n.config as any,
+            credentials: n.credentialId || null
+          }))
+        },
+        edges: {
+          create: (data.edges || []).map(e => ({
+            edgeId: e.id,
+            sourceNodeId: e.source,
+            targetNodeId: e.target,
+            condition: e.condition ? (e.condition as any) : undefined
+          }))
+        }
+      },
+      include: {
+        nodes: true,
+        edges: true
+      }
+    });
 
-    this.workflows.set(id, workflow);
+    const mapped = mapDbWorkflow(workflow);
     
-    // Register with other services
-    webhookService.registerWorkflow(workflow);
-    schedulerService.registerWorkflow(workflow);
+    await webhookService.registerWorkflow(mapped);
+    await schedulerService.registerWorkflow(mapped);
 
-    logger.info(`Workflow created: ${id}`, { name: data.name, userId });
-    return workflow;
+    logger.info(`Workflow created in DB: ${id}`, { name: data.name, userId });
+    return mapped;
   }
 
   /**
    * Get a workflow by ID
    */
-  get(workflowId: string, userId?: string): StoredWorkflow | null {
-    const workflow = this.workflows.get(workflowId);
-    
+  async get(workflowId: string, userId?: string): Promise<StoredWorkflow | null> {
+    const dbUserId = userId ? await ensureUser(userId) : undefined;
+
+    const workflow = await prisma.workflow.findFirst({
+      where: {
+        id: workflowId,
+        ...(dbUserId ? { userId: dbUserId } : {})
+      },
+      include: {
+        nodes: true,
+        edges: true
+      }
+    });
+
     if (!workflow) return null;
-    if (userId && workflow.userId !== userId) return null;
-    
-    return workflow;
+    return mapDbWorkflow(workflow);
   }
 
   /**
-   * Update a workflow
+   * Update an existing workflow in PostgreSQL
    */
-  update(
+  async update(
     workflowId: string,
     userId: string,
     data: Partial<{
@@ -119,58 +214,108 @@ class WorkflowService {
       settings: WorkflowDefinition['settings'];
       isActive: boolean;
     }>
-  ): StoredWorkflow | null {
-    const workflow = this.workflows.get(workflowId);
+  ): Promise<StoredWorkflow | null> {
+    const dbUserId = await ensureUser(userId);
     
-    if (!workflow || workflow.userId !== userId) return null;
+    const exists = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId: dbUserId }
+    });
+    if (!exists) return null;
 
-    const updated: StoredWorkflow = {
-      ...workflow,
-      ...data,
-      updatedAt: new Date(),
-    };
+    const updated = await prisma.$transaction(async (tx) => {
+      if (data.nodes !== undefined) {
+        await tx.workflowNode.deleteMany({ where: { workflowId } });
+      }
+      if (data.edges !== undefined) {
+        await tx.workflowEdge.deleteMany({ where: { workflowId } });
+      }
 
-    this.workflows.set(workflowId, updated);
+      return tx.workflow.update({
+        where: { id: workflowId },
+        data: {
+          name: data.name,
+          description: data.description,
+          isActive: data.isActive,
+          settings: data.settings ? (data.settings as any) : undefined,
+          nodes: data.nodes ? {
+            create: data.nodes.map(n => ({
+              nodeId: n.id,
+              type: n.type as any,
+              name: n.name,
+              position: n.position as any,
+              config: n.config as any,
+              credentials: n.credentialId || null
+            }))
+          } : undefined,
+          edges: data.edges ? {
+            create: data.edges.map(e => ({
+              edgeId: e.id,
+              sourceNodeId: e.source,
+              targetNodeId: e.target,
+              condition: e.condition ? (e.condition as any) : undefined
+            }))
+          } : undefined
+        },
+        include: {
+          nodes: true,
+          edges: true
+        }
+      });
+    });
 
-    // Re-register with services
-    webhookService.registerWorkflow(updated);
-    schedulerService.registerWorkflow(updated);
+    const mapped = mapDbWorkflow(updated);
+    
+    await webhookService.registerWorkflow(mapped);
+    await schedulerService.registerWorkflow(mapped);
 
-    logger.info(`Workflow updated: ${workflowId}`);
-    return updated;
+    logger.info(`Workflow updated in DB: ${workflowId}`);
+    return mapped;
   }
 
   /**
    * Delete a workflow
    */
-  delete(workflowId: string, userId: string): boolean {
-    const workflow = this.workflows.get(workflowId);
-    
-    if (!workflow || workflow.userId !== userId) return false;
+  async delete(workflowId: string, userId: string): Promise<boolean> {
+    const dbUserId = await ensureUser(userId);
 
-    // Clean up associated resources
-    const webhooks = webhookService.listByWorkflow(workflowId);
+    const workflow = await prisma.workflow.findFirst({
+      where: { id: workflowId, userId: dbUserId }
+    });
+    if (!workflow) return false;
+
+    const webhooks = await webhookService.listByWorkflow(workflowId);
     for (const wh of webhooks) {
-      webhookService.delete(wh.id);
+      await webhookService.delete(wh.id);
     }
 
-    this.workflows.delete(workflowId);
-    logger.info(`Workflow deleted: ${workflowId}`);
+    await prisma.workflow.delete({ where: { id: workflowId } });
+    logger.info(`Workflow deleted from DB: ${workflowId}`);
     return true;
   }
 
   /**
    * List workflows for a user
    */
-  list(userId: string): StoredWorkflow[] {
-    return Array.from(this.workflows.values()).filter(w => w.userId === userId);
+  async list(userId: string): Promise<StoredWorkflow[]> {
+    const dbUserId = await ensureUser(userId);
+
+    const workflows = await prisma.workflow.findMany({
+      where: { userId: dbUserId },
+      include: {
+        nodes: true,
+        edges: true
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    return workflows.map(mapDbWorkflow);
   }
 
   /**
    * Duplicate a workflow
    */
-  duplicate(workflowId: string, userId: string): StoredWorkflow | null {
-    const original = this.get(workflowId, userId);
+  async duplicate(workflowId: string, userId: string): Promise<StoredWorkflow | null> {
+    const original = await this.get(workflowId, userId);
     if (!original) return null;
 
     return this.create(userId, {
@@ -188,10 +333,10 @@ class WorkflowService {
   }
 
   /**
-   * Export workflow as JSON
+   * Export workflow
    */
-  export(workflowId: string, userId: string): object | null {
-    const workflow = this.get(workflowId, userId);
+  async export(workflowId: string, userId: string): Promise<object | null> {
+    const workflow = await this.get(workflowId, userId);
     if (!workflow) return null;
 
     return {
@@ -208,9 +353,9 @@ class WorkflowService {
   }
 
   /**
-   * Import workflow from JSON
+   * Import workflow
    */
-  import(userId: string, data: any): StoredWorkflow | null {
+  async import(userId: string, data: any): Promise<StoredWorkflow | null> {
     if (!data.workflow) return null;
 
     return this.create(userId, {
@@ -223,60 +368,143 @@ class WorkflowService {
   }
 
   /**
-   * Record an execution
+   * Record a workflow execution
    */
-  recordExecution(data: ExecutionRecord): void {
-    this.executions.set(data.id, data);
-    logger.debug(`Execution recorded: ${data.id}`, { workflowId: data.workflowId, status: data.status });
+  async recordExecution(data: ExecutionRecord): Promise<void> {
+    const exists = await prisma.workflow.findUnique({ where: { id: data.workflowId } });
+    if (!exists) {
+      logger.warn(`Cannot record execution: Workflow ${data.workflowId} not found in DB`);
+      return;
+    }
+
+    const prismaStatus = data.status.toUpperCase() as any;
+    const prismaMode = data.mode.toUpperCase() as any;
+
+    await prisma.workflowExecution.create({
+      data: {
+        id: data.id,
+        workflowId: data.workflowId,
+        status: prismaStatus,
+        mode: prismaMode,
+        startedAt: data.startedAt || new Date(),
+        finishedAt: data.finishedAt || null,
+        error: data.error || null,
+        data: data.input || null,
+        nodeExecutions: {
+          create: (data.nodeResults || []).map(nr => ({
+            nodeId: nr.nodeId,
+            nodeName: nr.nodeId,
+            status: nr.status.toUpperCase() as any,
+            startedAt: nr.startedAt,
+            finishedAt: nr.finishedAt,
+            outputData: nr.data || null,
+            error: nr.error || null
+          }))
+        }
+      }
+    });
+
+    logger.debug(`Execution recorded in DB: ${data.id}`);
   }
 
   /**
-   * Update execution record
+   * Update an existing execution
    */
-  updateExecution(executionId: string, updates: Partial<ExecutionRecord>): void {
-    const existing = this.executions.get(executionId);
-    if (existing) {
-      this.executions.set(executionId, { ...existing, ...updates });
+  async updateExecution(executionId: string, updates: Partial<ExecutionRecord>): Promise<void> {
+    const existing = await prisma.workflowExecution.findUnique({ where: { id: executionId } });
+    if (!existing) return;
+
+    const data: any = {};
+    if (updates.status) data.status = updates.status.toUpperCase();
+    if (updates.finishedAt) data.finishedAt = updates.finishedAt;
+    if (updates.output) data.outputData = updates.output;
+    if (updates.error) data.error = updates.error;
+
+    await prisma.workflowExecution.update({
+      where: { id: executionId },
+      data
+    });
+
+    if (updates.nodeResults) {
+      for (const nr of updates.nodeResults) {
+        await prisma.nodeExecution.updateMany({
+          where: { executionId, nodeId: nr.nodeId },
+          data: {
+            status: nr.status.toUpperCase() as any,
+            startedAt: nr.startedAt || undefined,
+            finishedAt: nr.finishedAt || undefined,
+            outputData: nr.data || undefined,
+            error: nr.error || null
+          }
+        });
+      }
     }
   }
 
   /**
    * Get execution history for a workflow
    */
-  getExecutions(workflowId: string, limit: number = 50): ExecutionRecord[] {
-    return Array.from(this.executions.values())
-      .filter(e => e.workflowId === workflowId)
-      .sort((a, b) => (b.startedAt?.getTime() || 0) - (a.startedAt?.getTime() || 0))
-      .slice(0, limit);
+  async getExecutions(workflowId: string, limit: number = 50): Promise<ExecutionRecord[]> {
+    const executions = await prisma.workflowExecution.findMany({
+      where: { workflowId },
+      include: { nodeExecutions: true },
+      orderBy: { startedAt: 'desc' },
+      take: limit
+    });
+
+    return executions.map(mapDbExecution);
   }
 
   /**
    * Get a single execution
    */
-  getExecution(executionId: string): ExecutionRecord | null {
-    return this.executions.get(executionId) || null;
+  async getExecution(executionId: string): Promise<ExecutionRecord | null> {
+    const execution = await prisma.workflowExecution.findUnique({
+      where: { id: executionId },
+      include: { nodeExecutions: true }
+    });
+
+    if (!execution) return null;
+    return mapDbExecution(execution);
   }
 
   /**
-   * Get execution statistics
+   * Get workflow statistics
    */
-  getStats(userId: string): {
+  async getStats(userId: string): Promise<{
     totalWorkflows: number;
     activeWorkflows: number;
     totalExecutions: number;
     successfulExecutions: number;
     failedExecutions: number;
-  } {
-    const userWorkflows = this.list(userId);
-    const workflowIds = new Set(userWorkflows.map(w => w.id));
-    const userExecutions = Array.from(this.executions.values()).filter(e => workflowIds.has(e.workflowId));
+  }> {
+    const dbUserId = await ensureUser(userId);
+
+    const workflows = await prisma.workflow.findMany({
+      where: { userId: dbUserId },
+      select: { id: true, isActive: true }
+    });
+
+    const workflowIds = workflows.map(w => w.id);
+
+    const totalExecutions = await prisma.workflowExecution.count({
+      where: { workflowId: { in: workflowIds } }
+    });
+
+    const successfulExecutions = await prisma.workflowExecution.count({
+      where: { workflowId: { in: workflowIds }, status: 'SUCCESS' }
+    });
+
+    const failedExecutions = await prisma.workflowExecution.count({
+      where: { workflowId: { in: workflowIds }, status: 'FAILED' }
+    });
 
     return {
-      totalWorkflows: userWorkflows.length,
-      activeWorkflows: userWorkflows.filter(w => w.isActive).length,
-      totalExecutions: userExecutions.length,
-      successfulExecutions: userExecutions.filter(e => e.status === 'success').length,
-      failedExecutions: userExecutions.filter(e => e.status === 'failed').length,
+      totalWorkflows: workflows.length,
+      activeWorkflows: workflows.filter(w => w.isActive).length,
+      totalExecutions,
+      successfulExecutions,
+      failedExecutions
     };
   }
 }

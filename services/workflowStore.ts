@@ -28,6 +28,8 @@ export interface WorkflowEdge {
   sourceHandle?: string;
   targetHandle?: string;
   condition?: any;
+  sourceSide?: 'left' | 'right' | 'top' | 'bottom';
+  targetSide?: 'left' | 'right' | 'top' | 'bottom';
 }
 
 export interface Workflow {

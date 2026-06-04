@@ -1,6 +1,6 @@
 // ===========================================
 // AETHER WORKFLOW ENGINE - Scheduler Service
-// Cron-based workflow scheduling
+// Cron-based workflow scheduling with DB persistence
 // ===========================================
 
 import * as cron from 'node-cron';
@@ -8,6 +8,8 @@ import { v4 as uuid } from 'uuid';
 import { logger } from '../utils/logger';
 import { WorkflowDefinition } from '../types/workflow.types';
 import { executeWorkflow } from '../engine/executionEngine';
+import prisma from '../utils/prismaClient';
+import { workflowService } from './workflowService';
 
 interface ScheduledJob {
   id: string;
@@ -22,33 +24,90 @@ interface ScheduledJob {
 
 class SchedulerService {
   private jobs: Map<string, ScheduledJob> = new Map();
-  private workflowStore: Map<string, WorkflowDefinition> = new Map();
 
   constructor() {
-    logger.info('Scheduler service initialized');
+    logger.info('Scheduler database service initialized');
   }
 
   /**
-   * Register a workflow for the scheduler to access
+   * Initialize and load all active schedules from PostgreSQL on startup
    */
-  registerWorkflow(workflow: WorkflowDefinition): void {
-    this.workflowStore.set(workflow.id, workflow);
+  async initialize(): Promise<void> {
+    try {
+      logger.info('Initializing scheduler: loading active schedules from PostgreSQL...');
+      
+      // Stop any running schedules first
+      for (const [id, job] of this.jobs.entries()) {
+        job.task.stop();
+      }
+      this.jobs.clear();
+
+      const activeTriggers = await prisma.scheduleTrigger.findMany({
+        where: { isActive: true }
+      });
+
+      for (const trigger of activeTriggers) {
+        const task = cron.schedule(
+          trigger.cronExpr,
+          async () => {
+            await this.executeScheduledWorkflow(trigger.id);
+          },
+          {
+            timezone: trigger.timezone,
+          }
+        );
+
+        this.jobs.set(trigger.id, {
+          id: trigger.id,
+          workflowId: trigger.workflowId,
+          cronExpression: trigger.cronExpr,
+          timezone: trigger.timezone,
+          isActive: trigger.isActive,
+          lastRunAt: trigger.lastRunAt || undefined,
+          nextRunAt: trigger.nextRunAt || undefined,
+          task
+        });
+
+        logger.info(`Re-scheduled workflow: ${trigger.workflowId} on startup (Cron: ${trigger.cronExpr})`);
+      }
+
+      logger.info(`Scheduler initialized successfully. Registered ${activeTriggers.length} active jobs.`);
+    } catch (e: any) {
+      logger.error('Failed to initialize cron scheduler from database:', e.message);
+    }
+  }
+
+  /**
+   * Register workflow (stub kept for compatibility)
+   */
+  async registerWorkflow(workflow: WorkflowDefinition): Promise<void> {
+    // Dynamically query database instead of holding in-memory store
   }
 
   /**
    * Schedule a workflow to run on a cron schedule
    */
-  schedule(
+  async schedule(
     workflowId: string,
     cronExpression: string,
     timezone: string = 'UTC'
-  ): string {
-    // Validate cron expression
+  ): Promise<string> {
     if (!cron.validate(cronExpression)) {
       throw new Error(`Invalid cron expression: ${cronExpression}`);
     }
 
     const jobId = `schedule_${uuid()}`;
+
+    // Create schedule in database
+    await prisma.scheduleTrigger.create({
+      data: {
+        id: jobId,
+        cronExpr: cronExpression,
+        timezone,
+        isActive: true,
+        workflowId
+      }
+    });
 
     const task = cron.schedule(
       cronExpression,
@@ -69,12 +128,10 @@ class SchedulerService {
       task,
     };
 
-    // Calculate next run time
     job.nextRunAt = this.getNextRunTime(cronExpression);
-
     this.jobs.set(jobId, job);
 
-    logger.info(`Scheduled workflow: ${workflowId}`, {
+    logger.info(`Scheduled workflow in DB: ${workflowId}`, {
       jobId,
       cronExpression,
       timezone,
@@ -91,7 +148,7 @@ class SchedulerService {
     const job = this.jobs.get(jobId);
     if (!job || !job.isActive) return;
 
-    const workflow = this.workflowStore.get(job.workflowId);
+    const workflow = await workflowService.get(job.workflowId);
     if (!workflow) {
       logger.error(`Scheduled workflow not found: ${job.workflowId}`);
       return;
@@ -107,8 +164,46 @@ class SchedulerService {
         'schedule'
       );
 
-      job.lastRunAt = new Date();
-      job.nextRunAt = this.getNextRunTime(job.cronExpression);
+      const runDate = new Date();
+      const nextRun = this.getNextRunTime(job.cronExpression);
+
+      job.lastRunAt = runDate;
+      job.nextRunAt = nextRun;
+
+      // Update schedule record in DB
+      await prisma.scheduleTrigger.update({
+        where: { id: jobId },
+        data: {
+          lastRunAt: runDate,
+          nextRunAt: nextRun
+        }
+      });
+
+      // Save execution logs
+      const prismaStatus = result.status.toUpperCase() as any;
+      await prisma.workflowExecution.create({
+        data: {
+          id: result.executionId,
+          workflowId: workflow.id,
+          status: prismaStatus,
+          mode: 'SCHEDULE',
+          startedAt: runDate,
+          finishedAt: new Date(),
+          error: result.error || null,
+          data: { scheduledTime: runDate.toISOString() },
+          nodeExecutions: {
+            create: (result.results || []).map(r => ({
+              nodeId: r.nodeId,
+              nodeName: r.nodeId,
+              status: r.status.toUpperCase() as any,
+              startedAt: r.startedAt,
+              finishedAt: r.finishedAt,
+              outputData: r.data || null,
+              error: r.error || null
+            }))
+          }
+        }
+      });
 
       logger.info(`Scheduled workflow completed: ${job.workflowId}`, {
         jobId,
@@ -126,21 +221,26 @@ class SchedulerService {
   /**
    * Stop a scheduled job
    */
-  stop(jobId: string): boolean {
+  async stop(jobId: string): Promise<boolean> {
     const job = this.jobs.get(jobId);
     if (!job) return false;
 
     job.task.stop();
     job.isActive = false;
 
-    logger.info(`Stopped scheduled job: ${jobId}`);
+    await prisma.scheduleTrigger.update({
+      where: { id: jobId },
+      data: { isActive: false }
+    });
+
+    logger.info(`Stopped scheduled job in DB: ${jobId}`);
     return true;
   }
 
   /**
    * Resume a stopped job
    */
-  resume(jobId: string): boolean {
+  async resume(jobId: string): Promise<boolean> {
     const job = this.jobs.get(jobId);
     if (!job) return false;
 
@@ -148,28 +248,43 @@ class SchedulerService {
     job.isActive = true;
     job.nextRunAt = this.getNextRunTime(job.cronExpression);
 
-    logger.info(`Resumed scheduled job: ${jobId}`);
+    await prisma.scheduleTrigger.update({
+      where: { id: jobId },
+      data: {
+        isActive: true,
+        nextRunAt: job.nextRunAt
+      }
+    });
+
+    logger.info(`Resumed scheduled job in DB: ${jobId}`);
     return true;
   }
 
   /**
    * Remove a scheduled job
    */
-  remove(jobId: string): boolean {
+  async remove(jobId: string): Promise<boolean> {
     const job = this.jobs.get(jobId);
-    if (!job) return false;
-
-    job.task.stop();
+    if (job) {
+      job.task.stop();
+    }
+    
     this.jobs.delete(jobId);
 
-    logger.info(`Removed scheduled job: ${jobId}`);
+    // Check if it exists in DB before deleting
+    const exists = await prisma.scheduleTrigger.findUnique({ where: { id: jobId } });
+    if (exists) {
+      await prisma.scheduleTrigger.delete({ where: { id: jobId } });
+    }
+
+    logger.info(`Removed scheduled job from DB: ${jobId}`);
     return true;
   }
 
   /**
-   * List all scheduled jobs
+   * List all scheduled jobs from the database
    */
-  list(): Array<{
+  async list(): Promise<Array<{
     id: string;
     workflowId: string;
     cronExpression: string;
@@ -177,30 +292,25 @@ class SchedulerService {
     isActive: boolean;
     lastRunAt?: Date;
     nextRunAt?: Date;
-  }> {
-    return Array.from(this.jobs.values()).map(job => ({
-      id: job.id,
-      workflowId: job.workflowId,
-      cronExpression: job.cronExpression,
-      timezone: job.timezone,
-      isActive: job.isActive,
-      lastRunAt: job.lastRunAt,
-      nextRunAt: job.nextRunAt,
+  }>> {
+    const triggers = await prisma.scheduleTrigger.findMany();
+    return triggers.map(t => ({
+      id: t.id,
+      workflowId: t.workflowId,
+      cronExpression: t.cronExpr,
+      timezone: t.timezone,
+      isActive: t.isActive,
+      lastRunAt: t.lastRunAt || undefined,
+      nextRunAt: t.nextRunAt || undefined,
     }));
   }
 
   /**
-   * Get next run time for a cron expression
+   * Get next run time (simplistic estimation)
    */
   private getNextRunTime(cronExpression: string): Date {
-    // Simple implementation - in production use a proper cron parser
     const now = new Date();
-    const parts = cronExpression.split(' ');
-    
-    // For simplicity, return a rough estimate
-    // In production, use a library like cron-parser
-    const nextRun = new Date(now.getTime() + 60000); // Next minute
-    return nextRun;
+    return new Date(now.getTime() + 60000); // 1 minute estimate
   }
 
   /**
@@ -219,7 +329,6 @@ class SchedulerService {
 
     const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
-    // Simple descriptions for common patterns
     if (expression === '* * * * *') return 'Every minute';
     if (expression === '0 * * * *') return 'Every hour';
     if (expression === '0 0 * * *') return 'Every day at midnight';

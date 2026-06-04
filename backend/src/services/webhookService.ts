@@ -1,6 +1,6 @@
 // ===========================================
 // AETHER WORKFLOW ENGINE - Webhook Service
-// HTTP webhook handling and registration
+// HTTP webhook handling and database registration
 // ===========================================
 
 import { v4 as uuid } from 'uuid';
@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import { encryption } from '../utils/encryption';
 import { WorkflowDefinition, WebhookPayload } from '../types/workflow.types';
 import { executeWorkflow } from '../engine/executionEngine';
+import prisma from '../utils/prismaClient';
 
 interface RegisteredWebhook {
   id: string;
@@ -25,28 +26,18 @@ interface RegisteredWebhook {
     jwtSecret?: string;
   };
   createdAt: Date;
-  lastTriggeredAt?: Date;
-  triggerCount: number;
 }
 
 class WebhookService {
-  private webhooks: Map<string, RegisteredWebhook> = new Map();
-  private pathIndex: Map<string, string> = new Map(); // path -> webhookId
-  private workflowStore: Map<string, WorkflowDefinition> = new Map();
-
   constructor() {
-    logger.info('Webhook service initialized');
+    logger.info('Webhook database service initialized');
   }
 
   /**
    * Register a workflow for the service to access
    * Also auto-registers any webhook trigger nodes found in the workflow
    */
-  registerWorkflow(workflow: WorkflowDefinition): void {
-    this.workflowStore.set(workflow.id, workflow);
-    
-    // Auto-register webhook triggers found in the workflow
-    // Support multiple trigger type names for compatibility (cast to string to handle enums)
+  async registerWorkflow(workflow: WorkflowDefinition): Promise<void> {
     const webhookNodes = workflow.nodes.filter(n => {
       const nodeType = String(n.type).toUpperCase();
       return (
@@ -60,19 +51,14 @@ class WebhookService {
     
     // If no explicit webhook nodes, register the workflow itself as a webhook target
     if (webhookNodes.length === 0 && workflow.nodes.length > 0) {
-      // Register a default webhook for this workflow - use ANY method for flexibility
       const defaultPath = `/webhook/${workflow.id}/trigger`;
       try {
-        const existingId = this.pathIndex.get(defaultPath);
-        if (!existingId) {
-          this.register(workflow.id, {
-            path: defaultPath,
-            method: 'ANY',
-            responseMode: 'onCompleted',
-            authType: 'none'
-          });
-          logger.info(`Auto-registered default webhook for workflow ${workflow.id}: ${defaultPath}`);
-        }
+        await this.register(workflow.id, {
+          path: defaultPath,
+          method: 'ANY',
+          authType: 'none'
+        });
+        logger.info(`Auto-registered default webhook for workflow ${workflow.id}: ${defaultPath}`);
       } catch (e: any) {
         logger.warn(`Failed to register default webhook for workflow ${workflow.id}: ${e.message}`);
       }
@@ -80,31 +66,13 @@ class WebhookService {
     }
     
     for (const node of webhookNodes) {
-      // Use configured path or default to workflow ID
       const path = node.config?.path || `/webhook/${workflow.id}/trigger`;
-      // Default to ANY to accept all HTTP methods (GET, POST, PUT, etc.)
       const method = node.config?.method || node.config?.httpMethod || 'ANY';
-      const responseMode = node.config?.responseMode || 'onCompleted';
       
       try {
-        // Check if already registered to avoid duplicates
-        const existingId = this.pathIndex.get(path);
-        if (existingId) {
-          const existing = this.webhooks.get(existingId);
-          if (existing && existing.workflowId === workflow.id) {
-            // Update existing webhook
-            existing.method = method.toUpperCase();
-            existing.responseMode = responseMode;
-            existing.isActive = true;
-            logger.info(`Updated webhook for workflow ${workflow.id}: ${path}`);
-            continue;
-          }
-        }
-
-        this.register(workflow.id, {
+        await this.register(workflow.id, {
           path,
           method,
-          responseMode,
           authType: node.config?.authentication || node.config?.authType || 'none',
           authConfig: node.config?.authConfig
         });
@@ -116,15 +84,14 @@ class WebhookService {
   }
 
   /**
-   * Register a new webhook endpoint
+   * Register a new webhook endpoint in the database
    */
-  register(
+  async register(
     workflowId: string,
     options: {
       path?: string;
       method?: string;
-      responseMode?: 'onReceived' | 'onCompleted';
-      authType?: RegisteredWebhook['authType'];
+      authType?: string;
       authConfig?: {
         username?: string;
         password?: string;
@@ -133,48 +100,57 @@ class WebhookService {
         jwtSecret?: string;
       };
     } = {}
-  ): RegisteredWebhook {
-    const id = `wh_${uuid()}`;
-    const path = options.path || `/webhook/${id}`;
+  ): Promise<RegisteredWebhook> {
+    const path = options.path || `/webhook/wh_${uuid()}`;
+    const method = options.method?.toUpperCase() || 'ANY';
+    const authType = (options.authType || 'none') as any;
 
-    // Check if path already exists
-    if (this.pathIndex.has(path)) {
-      throw new Error(`Webhook path already exists: ${path}`);
-    }
-
-    const webhook: RegisteredWebhook = {
-      id,
-      path,
-      workflowId,
-      method: options.method?.toUpperCase() || 'ANY',
-      isActive: true,
-      responseMode: options.responseMode || 'onCompleted',
-      authType: options.authType || 'none',
-      createdAt: new Date(),
-      triggerCount: 0,
-    };
-
-    // Hash auth credentials
+    const dbAuthConfig: any = {};
     if (options.authConfig) {
-      webhook.authConfig = {};
       if (options.authConfig.username) {
-        webhook.authConfig.username = options.authConfig.username;
-        webhook.authConfig.passwordHash = encryption.hash(options.authConfig.password || '');
+        dbAuthConfig.username = options.authConfig.username;
+        dbAuthConfig.passwordHash = encryption.hash(options.authConfig.password || '');
       }
       if (options.authConfig.headerName) {
-        webhook.authConfig.headerName = options.authConfig.headerName;
-        webhook.authConfig.headerValueHash = encryption.hash(options.authConfig.headerValue || '');
+        dbAuthConfig.headerName = options.authConfig.headerName;
+        dbAuthConfig.headerValueHash = encryption.hash(options.authConfig.headerValue || '');
       }
       if (options.authConfig.jwtSecret) {
-        webhook.authConfig.jwtSecret = options.authConfig.jwtSecret;
+        dbAuthConfig.jwtSecret = options.authConfig.jwtSecret;
       }
     }
 
-    this.webhooks.set(id, webhook);
-    this.pathIndex.set(path, id);
+    const trigger = await prisma.webhookTrigger.upsert({
+      where: { path },
+      update: {
+        method,
+        authType,
+        authConfig: dbAuthConfig,
+        workflowId
+      },
+      create: {
+        id: `wh_${uuid()}`,
+        path,
+        method,
+        authType,
+        authConfig: dbAuthConfig,
+        workflowId
+      }
+    });
 
-    logger.info(`Registered webhook: ${path}`, { webhookId: id, workflowId });
-    return webhook;
+    logger.info(`Registered webhook in DB: ${path}`, { webhookId: trigger.id, workflowId });
+    
+    return {
+      id: trigger.id,
+      path: trigger.path,
+      workflowId: trigger.workflowId,
+      method: trigger.method,
+      isActive: trigger.isActive,
+      responseMode: 'onCompleted',
+      authType: trigger.authType as any,
+      authConfig: trigger.authConfig as any,
+      createdAt: trigger.createdAt
+    };
   }
 
   /**
@@ -188,16 +164,22 @@ class WebhookService {
   }> {
     const { path, method, headers, body } = payload;
 
-    // Find matching webhook
-    const webhookId = this.pathIndex.get(path);
-    if (!webhookId) {
+    // Find matching webhook in DB and load its associated workflow
+    const webhook = await prisma.webhookTrigger.findUnique({
+      where: { path },
+      include: {
+        workflow: {
+          include: {
+            nodes: true,
+            edges: true
+          }
+        }
+      }
+    });
+
+    if (!webhook) {
       logger.warn(`Webhook not found: ${path}`);
       return { success: false, error: 'Webhook not found' };
-    }
-
-    const webhook = this.webhooks.get(webhookId);
-    if (!webhook) {
-      return { success: false, error: 'Webhook configuration error' };
     }
 
     // Check if active
@@ -217,23 +199,43 @@ class WebhookService {
       return { success: false, error: 'Authentication failed' };
     }
 
-    // Get workflow
-    const workflow = this.workflowStore.get(webhook.workflowId);
+    const workflow = webhook.workflow;
     if (!workflow) {
       logger.error(`Workflow not found for webhook: ${webhook.workflowId}`);
       return { success: false, error: 'Workflow not found' };
     }
 
-    // Update stats
-    webhook.lastTriggeredAt = new Date();
-    webhook.triggerCount++;
+    // Map Prisma Workflow model nodes and edges to frontend format expected by the execution engine
+    const nodes = (workflow.nodes || []).map((n: any) => ({
+      id: n.nodeId,
+      type: n.type,
+      name: n.name,
+      position: typeof n.position === 'string' ? JSON.parse(n.position) : n.position,
+      config: typeof n.config === 'string' ? JSON.parse(n.config) : n.config,
+      credentialId: n.credentials || undefined
+    }));
 
-    logger.info(`Webhook triggered: ${path}`, { webhookId, workflowId: webhook.workflowId });
+    const edges = (workflow.edges || []).map((e: any) => ({
+      id: e.edgeId,
+      source: e.sourceNodeId,
+      target: e.targetNodeId,
+      condition: e.condition ? (typeof e.condition === 'string' ? JSON.parse(e.condition) : e.condition) : undefined
+    }));
 
-    // Execute workflow
+    const mappedWorkflow: WorkflowDefinition = {
+      id: workflow.id,
+      name: workflow.name,
+      description: workflow.description || undefined,
+      settings: workflow.settings ? (typeof workflow.settings === 'string' ? JSON.parse(workflow.settings) : workflow.settings) : undefined,
+      nodes,
+      edges
+    };
+
+    logger.info(`Webhook triggered: ${path}`, { webhookId: webhook.id, workflowId: webhook.workflowId });
+
     try {
       const result = await executeWorkflow(
-        workflow,
+        mappedWorkflow,
         {
           webhook: {
             path,
@@ -250,19 +252,45 @@ class WebhookService {
         'webhook'
       );
 
-      // Extract the AI response from the output
+      // Save execution history in PostgreSQL asynchronously
+      const executionId = result.executionId;
+      const prismaStatus = result.status.toUpperCase() as any;
+      
+      await prisma.workflowExecution.create({
+        data: {
+          id: executionId,
+          workflowId: workflow.id,
+          status: prismaStatus,
+          mode: 'WEBHOOK',
+          startedAt: new Date(),
+          finishedAt: new Date(),
+          error: result.error || null,
+          data: body || null,
+          nodeExecutions: {
+            create: (result.results || []).map(r => ({
+              nodeId: r.nodeId,
+              nodeName: r.nodeId,
+              status: r.status.toUpperCase() as any,
+              startedAt: r.startedAt,
+              finishedAt: r.finishedAt,
+              outputData: r.data || null,
+              error: r.error || null
+            }))
+          }
+        }
+      });
+
+      if (result.status === 'failed') {
+        return { success: false, error: result.error || 'Execution failed', executionId };
+      }
+
+      // Extract the response
       const output = result.output;
       const aiResponse = output?.aiResponse || output?.response || output?.answer || output?.output || output;
       
-      logger.info(`Webhook execution completed`, { 
-        executionId: result.executionId,
-        hasAIResponse: !!aiResponse,
-        outputKeys: output ? Object.keys(output) : 'no output'
-      });
-
       return {
         success: true,
-        executionId: result.executionId,
+        executionId,
         response: aiResponse,
       };
     } catch (error: any) {
@@ -278,13 +306,16 @@ class WebhookService {
    * Authenticate webhook request
    */
   private authenticate(
-    webhook: RegisteredWebhook,
+    webhook: any,
     headers: Record<string, string>
   ): { success: boolean; error?: string } {
-    switch (webhook.authType) {
-      case 'none':
-        return { success: true };
+    if (!webhook.authType || webhook.authType === 'none') {
+      return { success: true };
+    }
 
+    const authConfig = webhook.authConfig as any;
+
+    switch (webhook.authType) {
       case 'basic': {
         const authHeader = headers['authorization'] || headers['Authorization'];
         if (!authHeader?.startsWith('Basic ')) {
@@ -295,11 +326,11 @@ class WebhookService {
         const decoded = Buffer.from(base64, 'base64').toString('utf-8');
         const [username, password] = decoded.split(':');
         
-        if (username !== webhook.authConfig?.username) {
+        if (username !== authConfig?.username) {
           return { success: false, error: 'Invalid username' };
         }
         
-        if (encryption.hash(password) !== webhook.authConfig?.passwordHash) {
+        if (encryption.hash(password) !== authConfig?.passwordHash) {
           return { success: false, error: 'Invalid password' };
         }
         
@@ -307,14 +338,14 @@ class WebhookService {
       }
 
       case 'header': {
-        const headerName = webhook.authConfig?.headerName || 'X-Webhook-Secret';
+        const headerName = authConfig?.headerName || 'X-Webhook-Secret';
         const headerValue = headers[headerName] || headers[headerName.toLowerCase()];
         
         if (!headerValue) {
           return { success: false, error: `Missing header: ${headerName}` };
         }
         
-        if (encryption.hash(headerValue) !== webhook.authConfig?.headerValueHash) {
+        if (encryption.hash(headerValue) !== authConfig?.headerValueHash) {
           return { success: false, error: 'Invalid header value' };
         }
         
@@ -322,12 +353,10 @@ class WebhookService {
       }
 
       case 'jwt':
-        // Simplified JWT check - in production use jsonwebtoken
         const token = headers['authorization']?.replace('Bearer ', '');
         if (!token) {
           return { success: false, error: 'Missing JWT token' };
         }
-        // Would verify JWT here
         return { success: true };
 
       default:
@@ -338,47 +367,94 @@ class WebhookService {
   /**
    * Get webhook by ID
    */
-  get(webhookId: string): RegisteredWebhook | undefined {
-    return this.webhooks.get(webhookId);
+  async get(webhookId: string): Promise<RegisteredWebhook | null> {
+    const trigger = await prisma.webhookTrigger.findUnique({ where: { id: webhookId } });
+    if (!trigger) return null;
+    return {
+      id: trigger.id,
+      path: trigger.path,
+      workflowId: trigger.workflowId,
+      method: trigger.method,
+      isActive: trigger.isActive,
+      responseMode: 'onCompleted',
+      authType: trigger.authType as any,
+      authConfig: trigger.authConfig as any,
+      createdAt: trigger.createdAt
+    };
   }
 
   /**
    * Get webhook by path
    */
-  getByPath(path: string): RegisteredWebhook | undefined {
-    const id = this.pathIndex.get(path);
-    return id ? this.webhooks.get(id) : undefined;
+  async getByPath(path: string): Promise<RegisteredWebhook | null> {
+    const trigger = await prisma.webhookTrigger.findUnique({
+      where: { path },
+      include: { workflow: { include: { nodes: true } } }
+    });
+    if (!trigger) return null;
+
+    const nodes = (trigger.workflow?.nodes || []).map((n: any) => ({
+      type: n.type,
+      config: typeof n.config === 'string' ? JSON.parse(n.config) : n.config
+    }));
+    const triggerNode = nodes.find(n => String(n.type).toUpperCase() === 'TRIGGER_WEBHOOK' || n.type.startsWith('TRIGGER'));
+    const responseMode = triggerNode?.config?.responseMode || 'onCompleted';
+
+    return {
+      id: trigger.id,
+      path: trigger.path,
+      workflowId: trigger.workflowId,
+      method: trigger.method,
+      isActive: trigger.isActive,
+      responseMode: responseMode as any,
+      authType: trigger.authType as any,
+      authConfig: trigger.authConfig as any,
+      createdAt: trigger.createdAt
+    };
   }
 
   /**
    * List all webhooks for a workflow
    */
-  listByWorkflow(workflowId: string): RegisteredWebhook[] {
-    return Array.from(this.webhooks.values()).filter(w => w.workflowId === workflowId);
+  async listByWorkflow(workflowId: string): Promise<RegisteredWebhook[]> {
+    const triggers = await prisma.webhookTrigger.findMany({ where: { workflowId } });
+    return triggers.map(trigger => ({
+      id: trigger.id,
+      path: trigger.path,
+      workflowId: trigger.workflowId,
+      method: trigger.method,
+      isActive: trigger.isActive,
+      responseMode: 'onCompleted',
+      authType: trigger.authType as any,
+      authConfig: trigger.authConfig as any,
+      createdAt: trigger.createdAt
+    }));
   }
 
   /**
    * Toggle webhook active state
    */
-  toggle(webhookId: string): boolean {
-    const webhook = this.webhooks.get(webhookId);
-    if (!webhook) return false;
+  async toggle(webhookId: string): Promise<boolean> {
+    const trigger = await prisma.webhookTrigger.findUnique({ where: { id: webhookId } });
+    if (!trigger) return false;
     
-    webhook.isActive = !webhook.isActive;
-    logger.info(`Webhook ${webhook.isActive ? 'enabled' : 'disabled'}: ${webhookId}`);
+    const updated = await prisma.webhookTrigger.update({
+      where: { id: webhookId },
+      data: { isActive: !trigger.isActive }
+    });
+
+    logger.info(`Webhook ${updated.isActive ? 'enabled' : 'disabled'}: ${webhookId}`);
     return true;
   }
 
   /**
    * Delete a webhook
    */
-  delete(webhookId: string): boolean {
-    const webhook = this.webhooks.get(webhookId);
-    if (!webhook) return false;
+  async delete(webhookId: string): Promise<boolean> {
+    const trigger = await prisma.webhookTrigger.findUnique({ where: { id: webhookId } });
+    if (!trigger) return false;
 
-    this.pathIndex.delete(webhook.path);
-    this.webhooks.delete(webhookId);
-    
+    await prisma.webhookTrigger.delete({ where: { id: webhookId } });
     logger.info(`Deleted webhook: ${webhookId}`);
     return true;
   }
@@ -386,8 +462,9 @@ class WebhookService {
   /**
    * Get all registered paths
    */
-  getAllPaths(): string[] {
-    return Array.from(this.pathIndex.keys());
+  async getAllPaths(): Promise<string[]> {
+    const triggers = await prisma.webhookTrigger.findMany({ select: { path: true } });
+    return triggers.map(t => t.path);
   }
 }
 

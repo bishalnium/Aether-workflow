@@ -99,6 +99,12 @@ model WorkflowNode {
 }
 
 enum NodeType {
+  // Frontend compatibility types
+  AGENT
+  TRIGGER
+  CONDITION
+  OUTPUT
+
   // Triggers
   TRIGGER_WEBHOOK
   TRIGGER_SCHEDULE

@@ -62,7 +62,7 @@ app.get('/api/v1/workflows', authenticate, async (req: Request, res: Response) =
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const workflows = workflowService.list(userId);
+    const workflows = await workflowService.list(userId);
     res.json({ success: true, data: workflows });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -74,7 +74,7 @@ app.get('/api/v1/workflows/:id', authenticate, async (req: Request, res: Respons
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const workflow = workflowService.get(req.params.id, userId);
+    const workflow = await workflowService.get(req.params.id, userId);
     
     if (!workflow) {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
@@ -97,7 +97,7 @@ app.post('/api/v1/workflows', authenticate, async (req: Request, res: Response) 
       return res.status(400).json({ success: false, error: 'Name is required' });
     }
     
-    const workflow = workflowService.create(userId, { id, name, description, nodes, edges, settings });
+    const workflow = await workflowService.create(userId, { id, name, description, nodes, edges, settings });
     res.status(201).json({ success: true, data: workflow });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -109,7 +109,7 @@ app.put('/api/v1/workflows/:id', authenticate, async (req: Request, res: Respons
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const workflow = workflowService.update(req.params.id, userId, req.body);
+    const workflow = await workflowService.update(req.params.id, userId, req.body);
     
     if (!workflow) {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
@@ -126,7 +126,7 @@ app.delete('/api/v1/workflows/:id', authenticate, async (req: Request, res: Resp
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const success = workflowService.delete(req.params.id, userId);
+    const success = await workflowService.delete(req.params.id, userId);
     
     if (!success) {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
@@ -143,7 +143,7 @@ app.post('/api/v1/workflows/:id/execute', authenticate, apiLimiter, async (req: 
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const workflow = workflowService.get(req.params.id, userId);
+    const workflow = await workflowService.get(req.params.id, userId);
     
     if (!workflow) {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
@@ -168,7 +168,7 @@ app.post('/api/v1/workflows/:id/execute', authenticate, apiLimiter, async (req: 
 // Get workflow executions
 app.get('/api/v1/workflows/:id/executions', authenticate, async (req: Request, res: Response) => {
   try {
-    const executions = workflowService.getExecutions(req.params.id, 50);
+    const executions = await workflowService.getExecutions(req.params.id, 50);
     res.json({ success: true, data: executions });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -180,7 +180,7 @@ app.post('/api/v1/workflows/:id/duplicate', authenticate, async (req: Request, r
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const workflow = workflowService.duplicate(req.params.id, userId);
+    const workflow = await workflowService.duplicate(req.params.id, userId);
     
     if (!workflow) {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
@@ -197,7 +197,7 @@ app.get('/api/v1/workflows/:id/export', authenticate, async (req: Request, res: 
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const data = workflowService.export(req.params.id, userId);
+    const data = await workflowService.export(req.params.id, userId);
     
     if (!data) {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
@@ -214,7 +214,7 @@ app.post('/api/v1/workflows/import', authenticate, async (req: Request, res: Res
   try {
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id || 'anonymous';
-    const workflow = workflowService.import(userId, req.body);
+    const workflow = await workflowService.import(userId, req.body);
     
     if (!workflow) {
       return res.status(400).json({ success: false, error: 'Invalid import data' });
@@ -239,7 +239,7 @@ app.post('/api/v1/webhooks', authenticate, async (req: Request, res: Response) =
       return res.status(400).json({ success: false, error: 'workflowId is required' });
     }
     
-    const webhook = webhookService.register(workflowId, { path, method, authType, authConfig });
+    const webhook = await webhookService.register(workflowId, { path, method, authType, authConfig });
     res.status(201).json({ success: true, data: webhook });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -253,7 +253,7 @@ app.all('/webhook/*', async (req: Request, res: Response) => {
     const path = req.path;
     
     // Get webhook configuration to check response mode
-    const webhook = webhookService.getByPath(path);
+    const webhook = await webhookService.getByPath(path);
     if (!webhook) {
       return res.status(404).json({ success: false, error: 'Webhook not found' });
     }
@@ -332,7 +332,7 @@ app.post('/api/v1/schedules', authenticate, async (req: Request, res: Response) 
       return res.status(400).json({ success: false, error: 'workflowId and cronExpression required' });
     }
     
-    const jobId = schedulerService.schedule(workflowId, cronExpression, timezone);
+    const jobId = await schedulerService.schedule(workflowId, cronExpression, timezone);
     res.status(201).json({ success: true, data: { jobId } });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -342,7 +342,7 @@ app.post('/api/v1/schedules', authenticate, async (req: Request, res: Response) 
 // List schedules
 app.get('/api/v1/schedules', authenticate, async (req: Request, res: Response) => {
   try {
-    const schedules = schedulerService.list();
+    const schedules = await schedulerService.list();
     res.json({ success: true, data: schedules });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -352,7 +352,7 @@ app.get('/api/v1/schedules', authenticate, async (req: Request, res: Response) =
 // Delete schedule
 app.delete('/api/v1/schedules/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const success = schedulerService.remove(req.params.id);
+    const success = await schedulerService.remove(req.params.id);
     res.json({ success });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -678,12 +678,27 @@ app.get('/api/v1/integrations/email/test', async (req: Request, res: Response) =
 // ===========================================
 app.post('/api/v1/integrations/ddg/search', authenticate, async (req: Request, res: Response) => {
   try {
-    const { query } = req.body;
+    const { 
+      query,
+      systemPrompt,
+      llmProvider,
+      llmModel,
+      llmApiKey,
+      llmTemperature
+    } = req.body;
+    
     if (!query) return res.status(400).json({ success: false, error: 'Query is required' });
 
-    const { groqChat } = require('./utils/groqClient');
+    const { callDynamicLLM } = require('./utils/llmClient');
 
-    logger.info(`[DDG RAG ROUTE] Initiating RAG Agent Loop for: "${query}"`);
+    logger.info(`[DDG RAG ROUTE] Initiating RAG Agent Loop for: "${query}" using provider=${llmProvider || 'groq'}`);
+
+    const llmOptions = {
+      provider: llmProvider || 'groq',
+      model: llmModel,
+      apiKey: llmApiKey,
+      temperature: llmTemperature !== undefined ? llmTemperature : 0.3
+    };
 
     let attempts = 0;
     const maxAttempts = 2;
@@ -701,7 +716,7 @@ app.post('/api/v1/integrations/ddg/search', authenticate, async (req: Request, r
       let searchQuery = query;
       if (attempts === 1) {
         try {
-          const queryResponse = await groqChat({
+          const queryResponse = await callDynamicLLM({
             messages: [
               { 
                 role: 'system', 
@@ -711,8 +726,8 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
               },
               { role: 'user', content: query }
             ],
-            temperature: 0.3,
-            maxTokens: 50
+            ...llmOptions,
+            temperature: 0.3
           });
           searchQuery = queryResponse.trim().replace(/^["']|["']$/g, '') || query;
         } catch (aiErr: any) {
@@ -723,7 +738,7 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
         // Refinement
         try {
           const contextText = allSearchResults.join('\n\n');
-          const refinementResponse = await groqChat({
+          const refinementResponse = await callDynamicLLM({
             messages: [
               { 
                 role: 'system', 
@@ -733,8 +748,8 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
               },
               { role: 'user', content: `Original Question: ${query}\n\nPrevious Findings:\n${contextText.substring(0, 2000)}` }
             ],
-            temperature: 0.3,
-            maxTokens: 50
+            ...llmOptions,
+            temperature: 0.3
           });
           searchQuery = refinementResponse.trim().replace(/^["']|["']$/g, '') || query;
         } catch (aiErr: any) {
@@ -777,27 +792,28 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
       const contextBlock = allSearchResults.join('\n\n');
 
       try {
-        const evaluationResponse = await groqChat({
-          messages: [
-            { 
-              role: 'system', 
-              content: `You are an AI research validator. You are evaluating if the search results contain sufficient information to answer the user's question.
-You must output a JSON object with the following fields:
+        let finalSystemPrompt = systemPrompt || `You are an AI research validator. You are evaluating if the search results contain sufficient information to answer the user's question.`;
+        finalSystemPrompt += `\n\nYou must output a JSON object with the following fields:
 {
   "isResolved": boolean, // Set to true if the search results are sufficient to answer the user's question. Set to false if key facts are still missing.
   "justification": "Brief explanation of why the search results are or are not sufficient.",
   "searchQuerySuggestion": "If isResolved is false, suggest a better search query to find the missing details. Otherwise, leave empty.",
   "compiledAnswer": "If isResolved is true, provide the final comprehensive answer to the user. Otherwise, provide a draft of what you know so far."
 }
-IMPORTANT: Output ONLY the valid JSON block, nothing else.` 
+IMPORTANT: Output ONLY the valid JSON block, nothing else.`;
+
+        const evaluationResponse = await callDynamicLLM({
+          messages: [
+            { 
+              role: 'system', 
+              content: finalSystemPrompt
             },
             { 
               role: 'user', 
               content: `User's Question: ${query}\n\nSearch Results:\n${contextBlock.substring(0, 4000)}` 
             }
           ],
-          temperature: 0.2,
-          maxTokens: 1000
+          ...llmOptions
         });
 
         // Parse JSON
@@ -846,7 +862,18 @@ IMPORTANT: Output ONLY the valid JSON block, nothing else.`
 // ===========================================
 app.post('/api/v1/integrations/rss/fetch', authenticate, async (req: Request, res: Response) => {
   try {
-    const { feedUrl, maxItems = 10, query, rawMode } = req.body;
+    const { 
+      feedUrl, 
+      maxItems = 10, 
+      query, 
+      rawMode,
+      systemPrompt,
+      llmProvider,
+      llmModel,
+      llmApiKey,
+      llmTemperature
+    } = req.body;
+    
     if (!feedUrl) return res.status(400).json({ success: false, error: 'Feed URL is required' });
 
     // --- STEP 1: Fetch and parse the RSS/Atom feed ---
@@ -879,7 +906,7 @@ app.post('/api/v1/integrations/rss/fetch', authenticate, async (req: Request, re
     }
 
     // --- STEP 2: AI analyzes the feed content ---
-    const { groqChat } = require('./utils/groqClient');
+    const { callDynamicLLM } = require('./utils/llmClient');
 
     // Build a context block from all articles
     const articlesContext = items.map((item, i) => 
@@ -892,23 +919,27 @@ app.post('/api/v1/integrations/rss/fetch', authenticate, async (req: Request, re
 
     let aiAnalysis: string;
     try {
-      aiAnalysis = await groqChat({
-        messages: [
-          { role: 'system', content: `You are an AI content analyst. You've been given articles from an RSS feed. Your job is to:
+      const defaultSystemPrompt = `You are an AI content analyst. You've been given articles from an RSS feed. Your job is to:
 1. Summarize the key themes and trends across all articles
 2. Highlight the most important/relevant articles
 3. If the user has a specific interest, filter and rank articles by relevance
 4. Provide actionable insights from the content
 5. Note any breaking news or time-sensitive information
 
-Format: Start with a brief overview, then list key articles with why they matter.` },
+Format: Start with a brief overview, then list key articles with why they matter.`;
+
+      aiAnalysis = await callDynamicLLM({
+        messages: [
+          { role: 'system', content: systemPrompt || defaultSystemPrompt },
           { role: 'user', content: `**Feed URL:** ${feedUrl}\n**Total Articles:** ${items.length}\n\n${userContext}\n\n**Articles:**\n${articlesContext}` }
         ],
-        temperature: 0.5,
-        maxTokens: 1500
+        provider: llmProvider || 'groq',
+        model: llmModel,
+        apiKey: llmApiKey,
+        temperature: llmTemperature !== undefined ? llmTemperature : 0.5
       });
-    } catch (aiErr) {
-      logger.warn(`[RSS RAG] AI analysis failed: ${(aiErr as any).message}`);
+    } catch (aiErr: any) {
+      logger.warn(`[RSS RAG] AI analysis failed: ${aiErr.message}`);
       aiAnalysis = `[AI analysis unavailable — ${items.length} raw articles returned]`;
     }
 
@@ -1160,16 +1191,86 @@ app.post('/api/v1/integrations/discord/send', authenticate, async (req: Request,
 // ===========================================
 // GOOGLE SHEETS (USER'S SERVICE ACCOUNT)
 // ===========================================
+
+// Helper: extract spreadsheet ID from URL or raw ID
+function extractSpreadsheetId(input: string): string {
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : input.trim();
+}
+
+// Helper: normalize any rowData into a clean 2D string array for Google Sheets API
+function normalizeRowData(raw: any): string[][] {
+  // 1) If it's a string, try parsing as JSON first
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch { /* not JSON, handle as plain text below */ }
+  }
+
+  // 2) If it's still a plain string (not parsed), try comma-separated
+  if (typeof raw === 'string') {
+    // Check if it looks like key:value pairs (e.g., "Name: John, Email: john@email.com")
+    const kvPairs = raw.match(/(\w[\w\s]*?):\s*([^,]+)/g);
+    if (kvPairs && kvPairs.length >= 2) {
+      const headers: string[] = [];
+      const values: string[] = [];
+      kvPairs.forEach((pair: string) => {
+        const [key, ...rest] = pair.split(':');
+        headers.push(key.trim());
+        values.push(rest.join(':').trim());
+      });
+      return [headers, values];
+    }
+    return [raw.split(',').map((s: string) => s.trim())];
+  }
+
+  // 3) If it's already a 2D array like [["a","b"]]
+  if (Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0])) {
+    return raw.map((row: any[]) => row.map(String));
+  }
+
+  // 4) If it's a flat array like ["Jane", "jane@example.com"]
+  if (Array.isArray(raw)) {
+    return [raw.map(String)];
+  }
+
+  // 5) If it's an object with named keys like {"name":"Jane", "email":"jane@..."}
+  //    Create a header row from keys and a data row from values for proper column mapping
+  if (typeof raw === 'object' && raw !== null) {
+    // Filter out internal/meta keys
+    const skipKeys = new Set(['input', '_raw', '_source', '_timestamp']);
+    const entries = Object.entries(raw).filter(([key]) => !skipKeys.has(key));
+    
+    if (entries.length > 0) {
+      const headers = entries.map(([key]) => 
+        key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) // snake_case → Title Case
+      );
+      const values = entries.map(([, val]) => String(val));
+      return [headers, values];
+    }
+    
+    const vals = Object.values(raw).map(String);
+    return [vals];
+  }
+
+  // 6) Fallback — wrap in a cell
+  return [[String(raw)]];
+}
+
 app.post('/api/v1/integrations/sheets/execute', authenticate, async (req: Request, res: Response) => {
   try {
-    const { action, sheetsId, range, rowData, serviceAccountJson } = req.body;
+    let { action, sheetsId, range, rowData, serviceAccountJson } = req.body;
     if (!sheetsId) return res.status(400).json({ success: false, error: 'Spreadsheet ID is required' });
-    if (!serviceAccountJson) return res.status(400).json({ success: false, error: 'Service Account JSON is required' });
+
+    // Auto-extract ID from full Google Sheets URL
+    sheetsId = extractSpreadsheetId(sheetsId);
+
+    // Fall back to env-stored service account if user didn't provide one
+    const saJson = serviceAccountJson || process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON || '';
+    if (!saJson) return res.status(400).json({ success: false, error: 'Service Account JSON is required. Paste it in the config panel or set GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON in backend .env' });
 
     // Parse service account credentials
     let credentials: any;
     try {
-      credentials = typeof serviceAccountJson === 'string' ? JSON.parse(serviceAccountJson) : serviceAccountJson;
+      credentials = typeof saJson === 'string' ? JSON.parse(saJson) : saJson;
     } catch {
       return res.status(400).json({ success: false, error: 'Invalid Service Account JSON — must be valid JSON' });
     }
@@ -1195,13 +1296,8 @@ app.post('/api/v1/integrations/sheets/execute', authenticate, async (req: Reques
         break;
       }
       case 'append-row': {
-        let values: any[][] = [];
-        try {
-          const parsed = typeof rowData === 'string' ? JSON.parse(rowData) : rowData;
-          values = Array.isArray(parsed[0]) ? parsed : [parsed];
-        } catch {
-          values = [[rowData]];
-        }
+        const values = normalizeRowData(rowData);
+        console.log('[SHEETS] Appending row:', JSON.stringify(values));
         const resp = await sheets.spreadsheets.values.append({
           spreadsheetId: sheetsId,
           range: effectiveRange,
@@ -1212,13 +1308,8 @@ app.post('/api/v1/integrations/sheets/execute', authenticate, async (req: Reques
         break;
       }
       case 'update-cell': {
-        let values: any[][] = [];
-        try {
-          const parsed = typeof rowData === 'string' ? JSON.parse(rowData) : rowData;
-          values = Array.isArray(parsed[0]) ? parsed : [parsed];
-        } catch {
-          values = [[rowData]];
-        }
+        const values = normalizeRowData(rowData);
+        console.log('[SHEETS] Updating cell:', JSON.stringify(values));
         const resp = await sheets.spreadsheets.values.update({
           spreadsheetId: sheetsId,
           range: effectiveRange,
@@ -1535,6 +1626,13 @@ app.listen(PORT, async () => {
     await jobQueueService.initialize();
   } catch (e) {
     logger.warn('Job queue not initialized - using synchronous execution');
+  }
+
+  // Load scheduler active triggers from database on startup
+  try {
+    await schedulerService.initialize();
+  } catch (e: any) {
+    logger.error('Failed to initialize cron scheduler:', e.message);
   }
 
   // ===========================================

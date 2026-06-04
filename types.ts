@@ -115,6 +115,8 @@ export interface WorkflowEdge {
   target: string;
   sourceEndpoint?: number; // Which output endpoint (0-indexed)
   targetEndpoint?: number; // Which input endpoint (0-indexed)
+  sourceSide?: 'left' | 'right' | 'top' | 'bottom';
+  targetSide?: 'left' | 'right' | 'top' | 'bottom';
 }
 
 export interface LogEntry {

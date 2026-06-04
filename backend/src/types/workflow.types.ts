@@ -103,6 +103,8 @@ export interface WorkflowEdge {
     operator: string;
     value: any;
   };
+  sourceSide?: 'left' | 'right' | 'top' | 'bottom';
+  targetSide?: 'left' | 'right' | 'top' | 'bottom';
 }
 
 export interface WorkflowDefinition {

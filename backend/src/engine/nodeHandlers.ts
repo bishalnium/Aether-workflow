@@ -24,6 +24,7 @@ const credentialService = {
 };
 
 import { groqChat, groqVisionChat } from '../utils/groqClient';
+import { callDynamicLLM } from '../utils/llmClient';
 
 // Inline AI service for node handlers using Groq GPT-OSS-120B with rotation
 const aiService = {
@@ -105,6 +106,223 @@ nodeHandlerRegistry.register('AGENT', async (node, input, context) => {
   });
   
   try {
+    let mappedInput = userMessage;
+    if (node.config?.llmAutoMap) {
+      logger.info(`[AGENT-MAPPING] Running LLM Auto-Mapping for integration model: ${model}`);
+      try {
+        const mapSystemPrompt = node.config.llmAutoMapPrompt || 'You are a data mapping assistant. Output the exact structure or format required.';
+        const mapProvider = node.config.llmAutoMapProvider || 'groq';
+        const mapModel = node.config.llmAutoMapModel || '';
+        const mapApiKey = node.config.llmAutoMapApiKey || '';
+        
+        mappedInput = await callDynamicLLM({
+          messages: [
+            { role: 'user', content: userMessage || 'No input context' }
+          ],
+          systemPrompt: mapSystemPrompt,
+          provider: mapProvider,
+          model: mapModel,
+          apiKey: mapApiKey,
+          temperature: 0.3
+        });
+        logger.info(`[AGENT-MAPPING] Auto-Mapping result: ${mappedInput.substring(0, 100)}...`);
+      } catch (llmMapErr: any) {
+        logger.warn(`[AGENT-MAPPING] LLM Auto-Mapping failed: ${llmMapErr.message}. Proceeding with raw message.`);
+      }
+    }
+
+    // Intercept integration models
+    if (model === 'google-sheets') {
+      logger.info(`[AGENT-SHEETS] Executing Sheets action: ${node.config.integrationAction}`);
+      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/sheets/execute`, {
+        action: node.config.integrationAction || 'read-sheet',
+        sheetsId: node.config.sheetsId,
+        range: node.config.sheetsRange || 'Sheet1!A1:Z100',
+        rowData: node.config.llmAutoMap ? mappedInput : (userMessage || '[]'),
+        serviceAccountJson: node.config.sheetsServiceAccountJson
+      }, {
+        headers: { 'Authorization': 'Bearer demo-token', 'Content-Type': 'application/json' }
+      });
+      const dataStr = JSON.stringify(resp.data?.data || resp.data, null, 2);
+      return {
+        ...input,
+        response: dataStr,
+        output: dataStr,
+        data: resp.data?.data || resp.data,
+        success: resp.data?.success !== false
+      };
+    }
+
+    if (model === 'telegram-bot') {
+      logger.info(`[AGENT-TELEGRAM] Executing Telegram action: ${node.config.integrationAction}`);
+      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/telegram/execute`, {
+        token: node.config.integrationToken,
+        action: node.config.integrationAction || 'send-message',
+        chatId: node.config.chatId || '',
+        message: node.config.llmAutoMap ? mappedInput : (node.config.messageText || userMessage || 'Hello from Aether!'),
+        photoUrl: node.config.photoUrl || ''
+      }, {
+        headers: { 'Authorization': 'Bearer demo-token', 'Content-Type': 'application/json' }
+      });
+      const dataStr = JSON.stringify(resp.data?.data || resp.data, null, 2);
+      return {
+        ...input,
+        response: dataStr,
+        output: dataStr,
+        data: resp.data?.data || resp.data,
+        success: resp.data?.success !== false
+      };
+    }
+
+    if (model === 'notion') {
+      logger.info(`[AGENT-NOTION] Executing Notion action: ${node.config.integrationAction}`);
+      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/notion/execute`, {
+        token: node.config.integrationToken,
+        action: node.config.integrationAction || 'query-database',
+        databaseId: node.config.notionDbId || '',
+        properties: node.config.llmAutoMap ? mappedInput : (node.config.notionProperties || ''),
+        query: node.config.llmAutoMap ? mappedInput : (node.config.notionQuery || userMessage || '')
+      }, {
+        headers: { 'Authorization': 'Bearer demo-token', 'Content-Type': 'application/json' }
+      });
+      const dataStr = JSON.stringify(resp.data?.data || resp.data, null, 2);
+      return {
+        ...input,
+        response: dataStr,
+        output: dataStr,
+        data: resp.data?.data || resp.data,
+        success: resp.data?.success !== false
+      };
+    }
+
+    if (model === 'discord') {
+      logger.info(`[AGENT-DISCORD] Executing Discord send message`);
+      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/discord/send`, {
+        webhookUrl: node.config.discordWebhookUrl,
+        message: node.config.llmAutoMap ? mappedInput : (node.config.discordMessage || userMessage || 'Hello from Aether Workflow!'),
+        action: node.config.integrationAction || 'send-message'
+      }, {
+        headers: { 'Authorization': 'Bearer demo-token', 'Content-Type': 'application/json' }
+      });
+      const dataStr = JSON.stringify(resp.data?.data || resp.data, null, 2);
+      return {
+        ...input,
+        response: dataStr,
+        output: dataStr,
+        data: resp.data?.data || resp.data,
+        success: resp.data?.success !== false
+      };
+    }
+
+    if (model === 'github-api') {
+      logger.info(`[AGENT-GITHUB] Executing GitHub action: ${node.config.integrationAction}`);
+      
+      const token = node.config.integrationToken;
+      if (!token) throw new Error('GitHub PAT not configured. Add your Personal Access Token in the config panel.');
+      const action = node.config.integrationAction || 'list-repos';
+      let apiUrl = 'https://api.github.com/user/repos?sort=updated&per_page=10';
+      let method = 'GET';
+      let requestBody = undefined;
+      
+      if (action === 'list-repos') {
+          apiUrl = 'https://api.github.com/user/repos?sort=updated&per_page=10';
+      } else if (action === 'list-issues') {
+          const repo = node.config.githubRepo || '';
+          apiUrl = `https://api.github.com/repos/${repo}/issues?state=open&per_page=10`;
+      } else if (action === 'create-issue') {
+          const repo = node.config.githubRepo || '';
+          apiUrl = `https://api.github.com/repos/${repo}/issues`;
+          method = 'POST';
+          
+          let issueTitle = userMessage || 'New Issue';
+          let issueBody = node.config.githubIssueBody || '';
+          if (node.config.llmAutoMap) {
+              try {
+                  const parsed = JSON.parse(mappedInput);
+                  issueTitle = parsed.title || issueTitle;
+                  issueBody = parsed.body || issueBody;
+              } catch (e) {
+                  issueBody = mappedInput;
+              }
+          }
+          requestBody = { title: issueTitle, body: issueBody };
+      } else if (action === 'get-file') {
+          const repo = node.config.githubRepo || '';
+          const path = node.config.githubFilePath || 'README.md';
+          apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+      }
+      
+      const ghResp = await axios({
+        url: apiUrl,
+        method,
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'Aether-Workflow' },
+        data: requestBody
+      });
+      
+      let finalOutput;
+      if (action === 'list-repos') {
+          finalOutput = ghResp.data.map((r: any) => `${r.full_name} ⭐` + r.stargazers_count + ` (` + (r.language || 'N/A') + `)`).join('\n');
+      } else if (action === 'get-file' && ghResp.data.content) {
+          finalOutput = Buffer.from(ghResp.data.content, 'base64').toString('utf8');
+      } else {
+          finalOutput = JSON.stringify(ghResp.data, null, 2).substring(0, 2000);
+      }
+      
+      return {
+        ...input,
+        response: finalOutput,
+        output: finalOutput,
+        data: ghResp.data,
+        success: true
+      };
+    }
+
+    if (model === 'firebase') {
+      logger.info(`[AGENT-FIREBASE] Executing Firebase action: ${node.config.integrationAction}`);
+      const resp = await axios.post(`http://localhost:8080/api/v1/integrations/firebase/execute`, {
+        action: node.config.integrationAction || 'read-doc',
+        serviceAccountJson: node.config.firebaseServiceAccountJson,
+        documentPath: node.config.firebaseDocPath || '',
+        collectionPath: node.config.firebaseCollectionPath || '',
+        data: node.config.llmAutoMap ? mappedInput : (node.config.firebaseData || userMessage || '{}'),
+        query: node.config.firebaseQuery || ''
+      }, {
+        headers: { 'Authorization': 'Bearer demo-token', 'Content-Type': 'application/json' }
+      });
+      const dataStr = JSON.stringify(resp.data?.data || resp.data, null, 2);
+      return {
+        ...input,
+        response: dataStr,
+        output: dataStr,
+        data: resp.data?.data || resp.data,
+        success: resp.data?.success !== false
+      };
+    }
+
+    if (model === 'db-read' || model === 'db-write') {
+      logger.info(`[AGENT-DATABASE] Executing Database action`);
+      const isRead = model === 'db-read';
+      const resp = await axios.post(`http://localhost:8080/api/v1/database/execute`, {
+        operation: isRead ? 'select' : (node.config.dbOperation || 'insert'),
+        table: node.config.tableName || '',
+        filter: node.config.dbFilter,
+        limit: node.config.dbLimit,
+        data: isRead ? undefined : (node.config.llmAutoMap ? mappedInput : userMessage),
+        dbType: node.config.dbType || 'sqlite',
+        connectionString: node.config.connectionString || '',
+      }, {
+        headers: { 'Authorization': 'Bearer demo-token', 'Content-Type': 'application/json' }
+      });
+      const dataStr = JSON.stringify(resp.data?.data || resp.data, null, 2);
+      return {
+        ...input,
+        response: dataStr,
+        output: dataStr,
+        data: resp.data?.data || resp.data,
+        success: resp.data?.success !== false
+      };
+    }
+
     let aiResponse: string;
     
     // Route to appropriate API based on model
@@ -218,6 +436,21 @@ Do not include JSON characters, brackets, or code blocks in your final output un
     } else if (model === 'ddg-search') {
       // DUCKDUCKGO LLM SEARCH AGENT LOOP (RAG-POWERED)
       logger.info(`[DDG-SEARCH-RAG] Initiating RAG Agent Loop for: "${userMessage}"`);
+
+      const {
+        systemPrompt,
+        llmProvider,
+        llmModel,
+        llmApiKey,
+        llmTemperature
+      } = node.config || {};
+
+      const llmOptions = {
+        provider: llmProvider || 'groq',
+        model: llmModel,
+        apiKey: llmApiKey,
+        temperature: llmTemperature !== undefined ? llmTemperature : 0.3
+      };
       
       let attempts = 0;
       const maxAttempts = 2;
@@ -235,7 +468,7 @@ Do not include JSON characters, brackets, or code blocks in your final output un
         let searchQuery = userMessage;
         if (attempts === 1) {
           try {
-            const queryResponse = await groqChat({
+            const queryResponse = await callDynamicLLM({
               messages: [
                 { 
                   role: 'system', 
@@ -245,8 +478,8 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
                 },
                 { role: 'user', content: userMessage }
               ],
-              temperature: 0.3,
-              maxTokens: 50
+              ...llmOptions,
+              temperature: 0.3
             });
             searchQuery = queryResponse.trim().replace(/^["']|["']$/g, '') || userMessage;
           } catch (aiErr: any) {
@@ -257,7 +490,7 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
           // For attempt > 1, ask the LLM to refine the query based on what we already found
           try {
             const contextText = allSearchResults.join('\n\n');
-            const refinementResponse = await groqChat({
+            const refinementResponse = await callDynamicLLM({
               messages: [
                 { 
                   role: 'system', 
@@ -267,8 +500,8 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
                 },
                 { role: 'user', content: `Original Question: ${userMessage}\n\nPrevious Findings:\n${contextText.substring(0, 2000)}` }
               ],
-              temperature: 0.3,
-              maxTokens: 50
+              ...llmOptions,
+              temperature: 0.3
             });
             searchQuery = refinementResponse.trim().replace(/^["']|["']$/g, '') || userMessage;
           } catch (aiErr: any) {
@@ -311,27 +544,28 @@ CRITICAL: DO NOT include conversational prefixes such as "what is", "who is", "h
         const contextBlock = allSearchResults.join('\n\n');
         
         try {
-          const evaluationResponse = await groqChat({
-            messages: [
-              { 
-                role: 'system', 
-                content: `You are an AI research validator. You are evaluating if the search results contain sufficient information to answer the user's question.
-You must output a JSON object with the following fields:
+          let finalSystemPrompt = systemPrompt || `You are an AI research validator. You are evaluating if the search results contain sufficient information to answer the user's question.`;
+          finalSystemPrompt += `\n\nYou must output a JSON object with the following fields:
 {
   "isResolved": boolean, // Set to true if the search results are sufficient to answer the user's question. Set to false if key facts are still missing.
   "justification": "Brief explanation of why the search results are or are not sufficient.",
   "searchQuerySuggestion": "If isResolved is false, suggest a better search query to find the missing details. Otherwise, leave empty.",
   "compiledAnswer": "If isResolved is true, provide the final comprehensive answer to the user. Otherwise, provide a draft of what you know so far."
 }
-IMPORTANT: Output ONLY the valid JSON block, nothing else.` 
+IMPORTANT: Output ONLY the valid JSON block, nothing else.`;
+
+          const evaluationResponse = await callDynamicLLM({
+            messages: [
+              { 
+                role: 'system', 
+                content: finalSystemPrompt
               },
               { 
                 role: 'user', 
                 content: `User's Question: ${userMessage}\n\nSearch Results:\n${contextBlock.substring(0, 4000)}` 
               }
             ],
-            temperature: 0.2,
-            maxTokens: 1000
+            ...llmOptions
           });
           
           // Parse JSON from LLM response
@@ -380,6 +614,17 @@ IMPORTANT: Output ONLY the valid JSON block, nothing else.`
       const feedUrl = node.config?.feedUrl || input?.feedUrl || input?.body?.feedUrl || 'https://feeds.bbci.co.uk/news/rss.xml';
       logger.info(`[RSS-READER-RAG] Fetching and analyzing feed: ${feedUrl}`);
       
+      const {
+        systemPrompt,
+        llmProvider,
+        llmModel,
+        llmApiKey,
+        llmTemperature,
+        maxItems = 10
+      } = node.config || {};
+
+      const limitVal = parseInt(maxItems as any) || 10;
+      
       const response = await axios.get(feedUrl, { 
         headers: { 'Accept': 'application/rss+xml, application/xml, text/xml' },
         timeout: 10000 
@@ -389,7 +634,7 @@ IMPORTANT: Output ONLY the valid JSON block, nothing else.`
       const items: any[] = [];
       const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>|<entry[^>]*>([\s\S]*?)<\/entry>/gi;
       let match;
-      while ((match = itemRegex.exec(xml)) !== null && items.length < 10) {
+      while ((match = itemRegex.exec(xml)) !== null && items.length < limitVal) {
         const content = match[1] || match[2];
         const getTag = (tag: string) => {
           const m = content.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\\/${tag}>`, 'is'));
@@ -412,20 +657,24 @@ IMPORTANT: Output ONLY the valid JSON block, nothing else.`
         : `Provide a general summary and highlights of the feed.`;
         
       try {
-        aiResponse = await groqChat({
-          messages: [
-            { role: 'system', content: `You are an AI content analyst. You've been given articles from an RSS feed. Your job is to:
+        const defaultSystemPrompt = `You are an AI content analyst. You've been given articles from an RSS feed. Your job is to:
 1. Summarize the key themes and trends across all articles
 2. Highlight the most important/relevant articles
 3. If the user has a specific interest, filter and rank articles by relevance
 4. Provide actionable insights from the content
 5. Note any breaking news or time-sensitive information
 
-Format: Start with a brief overview, then list key articles with why they matter.` },
+Format: Start with a brief overview, then list key articles with why they matter.`;
+
+        aiResponse = await callDynamicLLM({
+          messages: [
+            { role: 'system', content: systemPrompt || defaultSystemPrompt },
             { role: 'user', content: `**Feed URL:** ${feedUrl}\n**Total Articles:** ${items.length}\n\n${userContext}\n\n**Articles:**\n${articlesContext}` }
           ],
-          temperature: 0.5,
-          maxTokens: 1500
+          provider: llmProvider || 'groq',
+          model: llmModel,
+          apiKey: llmApiKey,
+          temperature: llmTemperature !== undefined ? llmTemperature : 0.5
         });
       } catch (aiErr: any) {
         logger.warn(`[RSS-READER-RAG] AI analysis failed: ${aiErr.message}`);
