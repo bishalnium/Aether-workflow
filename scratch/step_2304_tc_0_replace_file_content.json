@@ -1,0 +1,12 @@
+{
+  "AllowMultiple": "false",
+  "Description": "\"Update getEdgePath to support multi-directional (left, right, top, bottom) curves depending on connection sides.\"",
+  "EndLine": "1118",
+  "Instruction": "\"Replace getEdgePath definition to accept sourceSide and targetSide and perform horizontal or vertical Bezier curve routing accordingly.\"",
+  "ReplacementContent": "\"const getEdgePath = (\\n  source: Position, \\n  target: Position, \\n  sourceSide: 'left' | 'right' | 'top' | 'bottom' = 'right', \\n  targetSide: 'left' | 'right' | 'top' | 'bottom' = 'left'\\n) => {\\n  const isSourceHorizontal = sourceSide === 'left' || sourceSide === 'right';\\n  const isTargetHorizontal = targetSide === 'left' || targetSide === 'right';\\n  \\n  if (isSourceHorizontal && isTargetHorizontal) {\\n    const deltaX = target.x - source.x;\\n    const controlPointX = Math.max(30, Math.abs(deltaX) * 0.5);\\n    const sourceCPX = sourceSide === 'right' ? source.x + controlPointX : source.x - controlPointX;\\n    const targetCPX = targetSide === 'left' ? target.x - controlPointX : target.x + controlPointX;\\n    return `M${source.x},${source.y} C${sourceCPX},${source.y} ${targetCPX},${target.y} ${target.x},${target.y}`;\\n  } else {\\n    const deltaY = target.y - source.y;\\n    const controlPointY = Math.max(30, Math.abs(deltaY) * 0.5);\\n    const sourceCPY = sourceSide === 'bottom' ? source.y + controlPointY : source.y - controlPointY;\\n    const targetCPY = targetSide === 'top' ? target.y - controlPointY : target.y + controlPointY;\\n    return `M${source.x},${source.y} C${source.x},${sourceCPY} ${target.x},${targetCPY} ${target.x},${target.y}`;\\n  }\\n};\"",
+  "StartLine": "1113",
+  "TargetContent": "\"const getEdgePath = (source: Position, target: Position) => {\\n  const deltaX = target.x - source.x;\\n  const controlPointX = deltaX * 0.5;\\n  return `M${source.x},${source.y} C${source.x + controlPointX},${source.y} ${target.x - controlPointX},${target.y} ${target.x},${target.y}`;\\n};\"",
+  "TargetFile": "\"c:\\\\Users\\\\bisha\\\\Downloads\\\\aether\\\\Aether-workflow\\\\components\\\\Builder.tsx\"",
+  "toolAction": "\"Updating getEdgePath in Builder.tsx\"",
+  "toolSummary": "\"Update getEdgePath function\""
+}

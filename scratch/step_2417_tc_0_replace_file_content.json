@@ -1,0 +1,12 @@
+{
+  "AllowMultiple": "false",
+  "Description": "\"Add Get Token button for Telegram Bot config.\"",
+  "EndLine": "4675",
+  "Instruction": "\"Add help button next to Telegram Bot token label.\"",
+  "ReplacementContent": "\"                                  <div className=\\\"space-y-1\\\">\\n                                     <div className=\\\"flex items-center justify-between\\\">\\n                                       <label className=\\\"text-[10px] font-bold text-cream/50 uppercase tracking-wider\\\">\\n                                          Bot Token {selectedNode.data.integrationToken && <span className=\\\"text-green-400 normal-case ml-1\\\">✓ Set</span>}\\n                                       </label>\\n                                       <button \\n                                         onClick={() => setShowHelpFor('telegram-bot')}\\n                                         className=\\\"text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors\\\"\\n                                       >\\n                                         ❓ Get Token / Help\\n                                       </button>\\n                                     </div>\"",
+  "StartLine": "4672",
+  "TargetContent": "\"                                  <div className=\\\"space-y-1\\\">\\n                                     <label className=\\\"text-[10px] font-bold text-cream/50 uppercase tracking-wider\\\">\\n                                        Bot Token {selectedNode.data.integrationToken && <span className=\\\"text-green-400 normal-case ml-1\\\">✓ Set</span>}\\n                                     </label>\"",
+  "TargetFile": "\"c:\\\\Users\\\\bisha\\\\Downloads\\\\aether\\\\Aether-workflow\\\\components\\\\Builder.tsx\"",
+  "toolAction": "\"Replacing Telegram bot token label with label and button\"",
+  "toolSummary": "\"Update Telegram bot token label in Builder.tsx\""
+}

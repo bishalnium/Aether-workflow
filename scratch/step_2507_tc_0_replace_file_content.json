@@ -1,0 +1,12 @@
+{
+  "AllowMultiple": "false",
+  "Description": "\"Ensure all custom node.data config settings are serialized and sent to backend during workflow deployment.\"",
+  "EndLine": "1273",
+  "Instruction": "\"Spread node.data inside the config field of backendNodes serialization.\"",
+  "ReplacementContent": "\"      // Transform nodes to backend format\\n      const backendNodes = nodes.map(node => ({\\n        id: node.id,\\n        type: node.type === NodeType.TRIGGER ? 'TRIGGER_WEBHOOK' : node.type,\\n        name: node.data.label,\\n        position: node.position,\\n        config: {\\n          path: `/webhook/${workflowId}/trigger`,\\n          method: 'POST',\\n          responseMode: 'onCompleted',\\n          inputEndpoints: node.data.inputEndpoints || 1,\\n          outputEndpoints: node.data.outputEndpoints || 1,\\n          ...node.data\\n        }\\n      }));\"",
+  "StartLine": "1252",
+  "TargetContent": "\"      // Transform nodes to backend format\\n      const backendNodes = nodes.map(node => ({\\n        id: node.id,\\n        type: node.type === NodeType.TRIGGER ? 'TRIGGER_WEBHOOK' : node.type,\\n        name: node.data.label,\\n        position: node.position,\\n        config: {\\n          path: `/webhook/${workflowId}/trigger`,\\n          method: 'POST',\\n          responseMode: 'onCompleted',\\n          model: node.data.model,\\n          systemPrompt: node.data.systemPrompt,\\n          category: node.data.category,\\n          recipient: node.data.recipient,\\n          subject: node.data.subject,\\n          inputEndpoints: node.data.inputEndpoints || 1,\\n          outputEndpoints: node.data.outputEndpoints || 1,\\n          // Custom API key support\\n          customApiKey: node.data.customApiKey,\\n          apiProvider: node.data.apiProvider,\\n        }\\n      }));\"",
+  "TargetFile": "\"c:\\\\Users\\\\bisha\\\\Downloads\\\\aether\\\\Aether-workflow\\\\components\\\\Builder.tsx\"",
+  "toolAction": "\"Updating node deployment serialization\"",
+  "toolSummary": "\"Update node serialization in Builder.tsx\""
+}

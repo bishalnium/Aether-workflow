@@ -1,0 +1,12 @@
+{
+  "AllowMultiple": "false",
+  "Description": "\"Add wrapper div start for Telegram Bot Token label.\"",
+  "EndLine": "4700",
+  "Instruction": "\"Add div wrapper start to telegram bot token label.\"",
+  "ReplacementContent": "\"                                     <div className=\\\"flex items-center justify-between\\\">\\n                                       <label className=\\\"text-[10px] font-bold text-cream/50 uppercase tracking-wider\\\">\"",
+  "StartLine": "4660",
+  "TargetContent": "\"                                     <label className=\\\"text-[10px] font-bold text-cream/50 uppercase tracking-wider\\\">\"",
+  "TargetFile": "\"c:\\\\Users\\\\bisha\\\\Downloads\\\\aether\\\\Aether-workflow\\\\components\\\\Builder.tsx\"",
+  "toolAction": "\"Replacing Telegram Bot Token label start\"",
+  "toolSummary": "\"Update Telegram Bot Token label start in Builder.tsx\""
+}

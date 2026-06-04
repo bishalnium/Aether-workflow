@@ -1,0 +1,12 @@
+{
+  "AllowMultiple": "false",
+  "Description": "\"Add showHelpFor state variable for credential setup guides modal.\"",
+  "EndLine": "1160",
+  "Instruction": "\"Add showHelpFor state below searchQuery state.\"",
+  "ReplacementContent": "\"  const [showSettings, setShowSettings] = useState(false);\\n  const [searchQuery, setSearchQuery] = useState('');\\n  const [showHelpFor, setShowHelpFor] = useState<'google-sheets' | 'notion' | 'discord' | 'telegram-bot' | 'github-api' | 'firebase' | null>(null);\"",
+  "StartLine": "1157",
+  "TargetContent": "\"  const [showSettings, setShowSettings] = useState(false);\\n  const [searchQuery, setSearchQuery] = useState('');\"",
+  "TargetFile": "\"c:\\\\Users\\\\bisha\\\\Downloads\\\\aether\\\\Aether-workflow\\\\components\\\\Builder.tsx\"",
+  "toolAction": "\"Adding showHelpFor state in Builder.tsx\"",
+  "toolSummary": "\"Add showHelpFor state\""
+}
