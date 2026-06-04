@@ -1660,14 +1660,16 @@ app.listen(PORT, async () => {
     logger.info(`[Keep-Alive] Service enabled - Pinging ${RENDER_URL}/health every 10 minutes`);
   }
 
+  const displayUrl = RENDER_URL || `http://localhost:${PORT}`;
+
   console.log(`
   ┌──────────────────────────────────────────────────────────┐
   │  🚀 Aether Workflow Engine is running                     │
   │                                                          │
-  │  ➜ Local:      http://localhost:${PORT}                      │
-  │  ➜ API:        http://localhost:${PORT}/api/v1               │
-  │  ➜ Webhooks:   http://localhost:${PORT}/webhook/...          │
-  │  ➜ Env:        ${config.NODE_ENV}                               │
+  │  ➜ Server:     ${displayUrl}
+  │  ➜ API:        ${displayUrl}/api/v1
+  │  ➜ Webhooks:   ${displayUrl}/webhook/...
+  │  ➜ Env:        ${config.NODE_ENV}
   │                                                          │
   │  Available Services:                                     │
   │    ✓ Workflow Execution Engine                           │
