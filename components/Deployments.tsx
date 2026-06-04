@@ -116,8 +116,7 @@ export const Deployments: React.FC<DeploymentsProps> = ({ onNavigate, nodes, edg
   };
 
   const handleCopyEndpoint = (endpoint: string, deploymentId: string) => {
-    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
-    const baseUrl = isProduction ? 'https://aether-workflow.onrender.com' : 'http://localhost:8080';
+    const baseUrl = 'https://aether-workflow.onrender.com';
     const fullUrl = `${baseUrl}${endpoint}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedEndpoint(deploymentId);
@@ -125,8 +124,7 @@ export const Deployments: React.FC<DeploymentsProps> = ({ onNavigate, nodes, edg
   };
 
   const handleTestEndpoint = async (deployment: Deployment) => {
-    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
-    const baseUrl = isProduction ? 'https://aether-workflow.onrender.com' : 'http://localhost:8080';
+    const baseUrl = 'https://aether-workflow.onrender.com';
     const fullUrl = `${baseUrl}${deployment.endpoint}`;
     try {
       const response = await fetch(fullUrl, {

@@ -18,6 +18,8 @@ if (pdfjs.GlobalWorkerOptions) {
 
 const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
 const API_BASE_URL = isProduction ? 'https://aether-workflow.onrender.com' : 'http://localhost:8080';
+// Webhook URLs shown to users must ALWAYS point to the production backend (Render)
+const WEBHOOK_BASE_URL = 'https://aether-workflow.onrender.com';
 
 // --- CONSTANTS & TEMPLATES ---
 
@@ -1412,7 +1414,7 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
         
         // Find webhook trigger nodes and show their URLs
         const triggerNode = nodes.find(n => n.type === NodeType.TRIGGER || n.data.model === 'webhook-trigger');
-        const webhookUrl = `${API_BASE_URL}/webhook/${createdId}/trigger`;
+        const webhookUrl = `${WEBHOOK_BASE_URL}/webhook/${createdId}/trigger`;
         
         addLog('success', `✅ Workflow deployed successfully!`);
         addLog('info', `📌 Workflow ID: ${createdId}`);
@@ -3403,7 +3405,7 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                 <div className="text-xs text-emerald-400 font-bold mb-1">Webhook URL (after deploy)</div>
                 <div className="text-xs text-gray-400 font-mono break-all">
-                  {`${API_BASE_URL}/webhook/${deployedWorkflowId || 'wf_' + Date.now()}/trigger`}
+                  {`${WEBHOOK_BASE_URL}/webhook/${deployedWorkflowId || 'wf_' + Date.now()}/trigger`}
                 </div>
               </div>
             </div>
@@ -4075,11 +4077,11 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                                 <span className="font-bold">DEPLOYED</span>
                             </div>
                             <div className="mt-1 text-[9px] text-cream/60 font-mono break-all">
-                                {`${API_BASE_URL}/webhook/${deployedWorkflowId}/trigger`}
+                                {`${WEBHOOK_BASE_URL}/webhook/${deployedWorkflowId}/trigger`}
                             </div>
                             <button
                                 onClick={() => {
-                                    navigator.clipboard.writeText(`${API_BASE_URL}/webhook/${deployedWorkflowId}/trigger`);
+                                    navigator.clipboard.writeText(`${WEBHOOK_BASE_URL}/webhook/${deployedWorkflowId}/trigger`);
                                     addLog('info', 'Webhook URL copied to clipboard!');
                                 }}
                                 className="mt-1 text-[9px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
@@ -4322,12 +4324,12 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                                    <input 
                                      type="text" 
                                      readOnly
-                                     value={`${API_BASE_URL}/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`}
+                                     value={`${WEBHOOK_BASE_URL}/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`}
                                      className="w-full bg-black/70 border border-white/10 p-2 text-xs text-gray-400 rounded-md font-mono"
                                    />
                                    <button 
                                      onClick={() => {
-                                       navigator.clipboard.writeText(`${API_BASE_URL}/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`);
+                                       navigator.clipboard.writeText(`${WEBHOOK_BASE_URL}/webhook/{workflowId}${selectedNode.data.webhookPath || '/trigger'}`);
                                        addLog('info', 'Webhook URL copied to clipboard');
                                      }}
                                      className="p-2 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
