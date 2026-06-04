@@ -4308,18 +4308,9 @@ IMPORTANT: Output ONLY the JSON array, no explanation or markdown.`;
                                 </p>
                              </div>
                              <div className="space-y-1 mt-3">
-                                <div className="flex items-center justify-between">
-                                       <div className="flex items-center justify-between">
-                                       <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Webhook URL</label>
-                                       <button 
-                                         onClick={() => setShowHelpFor('discord')}
-                                         className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition-colors"
-                                       >
-                                         ❓ Get Token / Help
-                                       </button>
-                                     </div>
-                                       <button 
-                                         onClick={() => setShowHelpFor('discord')}
+                                 <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-bold text-cream/50 uppercase tracking-wider">Webhook URL</label>
+                                 </div>
                                 <div className="flex items-center gap-2">
                                    <input 
                                      type="text" 

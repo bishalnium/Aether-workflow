@@ -147,7 +147,7 @@ class StorageService {
       deployments: [],
       credentials: [],
       settings: {
-        apiGateway: typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 'https://aether-workflow.onrender.com/api/v1' : 'http://localhost:8080/api/v1',
+        apiGateway: 'https://aether-workflow.onrender.com/api/v1',
         environment: 'development',
         defaultModel: 'gemini-2.5-flash',
         theme: 'dark',
@@ -377,7 +377,20 @@ class StorageService {
 
   getSettings(email: string): SystemSettings | null {
     const userData = this.getUserData(email);
-    return userData?.settings || null;
+    if (!userData?.settings) return null;
+    
+    // Auto-migrate localhost API gateway to production Render URL
+    if (userData.settings.apiGateway && userData.settings.apiGateway.includes('localhost:8080')) {
+      userData.settings.apiGateway = 'https://aether-workflow.onrender.com/api/v1';
+      // Use direct db update to avoid infinite notification loop if getSettings is called inside listeners
+      const db = this.loadDB();
+      if (db[email]) {
+        db[email].settings.apiGateway = 'https://aether-workflow.onrender.com/api/v1';
+        this.saveDB(db);
+      }
+    }
+    
+    return userData.settings;
   }
 
   updateSettings(email: string, settings: Partial<SystemSettings>) {
