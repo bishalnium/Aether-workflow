@@ -1380,7 +1380,8 @@ export const Builder: React.FC<BuilderProps> = ({ onNavigate, nodes, setNodes, e
       }));
       
       // Transform edges to backend format
-      const backendEdges = edges.map(edge => ({
+      const backendEdges = edges.map((edge, idx) => ({
+        id: edge.id || `edge_${Date.now()}_${idx}`,
         source: edge.source,
         target: edge.target,
         sourceHandle: edge.sourceEndpoint?.toString() || '0',
