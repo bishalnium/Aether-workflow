@@ -1,6 +1,96 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Mail, Lock, User, ArrowRight, Github, Chrome, AlertCircle, Eye, EyeOff } from 'lucide-react';
+
+// 1. FadingVideo: Custom JS crossfade manually handling looping
+const FadingVideo: React.FC<{ src: string; className?: string; style?: React.CSSProperties }> = ({ src, className, style }) => {
+   const videoRef = useRef<HTMLVideoElement>(null);
+   const fadingOutRef = useRef(false);
+   const rafRef = useRef<number>();
+
+   const FADE_MS = 500;
+   const FADE_OUT_LEAD = 0.55;
+
+   const fadeTo = (target: number, duration: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+      const startOp = parseFloat(video.style.opacity || '0');
+      const startTime = performance.now();
+
+      const animate = (time: number) => {
+         const elapsed = time - startTime;
+         const progress = Math.min(elapsed / duration, 1);
+         const currentOp = startOp + (target - startOp) * progress;
+
+         if (videoRef.current) {
+            videoRef.current.style.opacity = currentOp.toString();
+         }
+
+         if (progress < 1) {
+            rafRef.current = requestAnimationFrame(animate);
+         }
+      };
+
+      rafRef.current = requestAnimationFrame(animate);
+   };
+
+   useEffect(() => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const onLoadedData = () => {
+         video.style.opacity = '0';
+         video.play().catch(console.error);
+         fadeTo(1, FADE_MS);
+      };
+
+      const onTimeUpdate = () => {
+         if (fadingOutRef.current) return;
+         const timeLeft = video.duration - video.currentTime;
+         if (timeLeft <= FADE_OUT_LEAD && timeLeft > 0) {
+            fadingOutRef.current = true;
+            fadeTo(0, FADE_MS);
+         }
+      };
+
+      const onEnded = () => {
+         video.style.opacity = '0';
+         setTimeout(() => {
+            if (!videoRef.current) return;
+            videoRef.current.currentTime = 0;
+            videoRef.current.play().catch(console.error);
+            fadingOutRef.current = false;
+            fadeTo(1, FADE_MS);
+         }, 100);
+      };
+
+      video.addEventListener('loadeddata', onLoadedData);
+      video.addEventListener('timeupdate', onTimeUpdate);
+      video.addEventListener('ended', onEnded);
+
+      return () => {
+         if (rafRef.current) cancelAnimationFrame(rafRef.current);
+         video.removeEventListener('loadeddata', onLoadedData);
+         video.removeEventListener('timeupdate', onTimeUpdate);
+         video.removeEventListener('ended', onEnded);
+      };
+   }, []);
+
+   return (
+      <video
+         ref={videoRef}
+         src={src}
+         className={className}
+         style={{ ...style, opacity: 0 }}
+         muted
+         playsInline
+         preload="auto"
+      />
+   );
+};
 import { User as UserType } from '../types';
 
 interface AuthProps {
@@ -154,8 +244,12 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
   return (
     <div className="w-full min-h-[calc(100vh-80px)] flex flex-col items-center justify-center relative overflow-hidden px-6 pt-20">
-      {/* Background Decor */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-cherry/20 to-transparent rounded-full blur-[120px] pointer-events-none" />
+      {/* Background Decor - Cinematic Video */}
+      <FadingVideo 
+        src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260418_080021_d598092b-c4c2-4e53-8e46-94cf9064cd50.mp4"
+        className="absolute inset-0 w-full h-full object-cover z-0"
+      />
+      <div className="absolute inset-0 bg-black/30 z-0 pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700">
         
@@ -167,7 +261,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             </div>
             
             {/* Inner Darkening Layer to ensure text legibility if glass is too transparent */}
-            <div className="absolute inset-[1px] bg-black/40 rounded-[22px] pointer-events-none"></div>
+            <div className="absolute inset-[1px] bg-black/60 rounded-[22px] pointer-events-none"></div>
 
             <div className="glass-card p-8 md:p-12 rounded-3xl border-t border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
               
